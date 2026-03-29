@@ -1,0 +1,1962 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>我的股票看板</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --up:#d42b2b;--up-bg:rgba(212,43,43,.09);
+  --down:#1a9e5c;--down-bg:rgba(26,158,92,.09);
+  --flat:#8a909c;
+  --bg:#eef0f4;--bg2:#fff;--bg3:#f6f8fb;--bg4:#edf0f5;
+  --border:#e0e4ec;--border2:#c8cdd8;
+  --text:#191c24;--text2:#464e62;--text3:#8a909c;
+  --accent:#1a5fd4;--accent-bg:#eef3fe;
+  --gold:#b87400;--orange:#d4600a;--purple:#6d3cc9;
+  --shadow:0 1px 4px rgba(0,0,0,.06),0 3px 14px rgba(0,0,0,.04);
+  --shadow-sm:0 1px 3px rgba(0,0,0,.05);
+  --r:10px;--r-sm:6px;
+  --mono:'IBM Plex Mono',monospace;
+  --sans:'Noto Sans TC',sans-serif;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.up{color:var(--up)}.down{color:var(--down)}.flat{color:var(--flat)}
+.bu{background:var(--up-bg);color:var(--up);padding:2px 7px;border-radius:4px;font-family:var(--mono);font-size:11px;display:inline-block}
+.bd{background:var(--down-bg);color:var(--down);padding:2px 7px;border-radius:4px;font-family:var(--mono);font-size:11px;display:inline-block}
+.bf{background:var(--bg4);color:var(--text3);padding:2px 7px;border-radius:4px;font-family:var(--mono);font-size:11px;display:inline-block}
+
+/* HEADER */
+header{background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:200;box-shadow:var(--shadow-sm)}
+.hd-top{display:flex;align-items:center;gap:12px;padding:0 16px;height:52px}
+.logo{font-family:var(--mono);font-size:15px;font-weight:500;color:var(--accent);display:flex;align-items:center;gap:8px;flex-shrink:0}
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--down);animation:blink 2s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.hd-space{flex:1}
+.mkt-badge{font-size:11px;font-family:var(--mono);padding:3px 10px;border-radius:20px;background:var(--down-bg);color:var(--down);flex-shrink:0}
+.clock{font-family:var(--mono);font-size:12px;color:var(--text3);flex-shrink:0}
+
+/* NOTIFICATION BELL */
+.notif-btn{position:relative;width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:background .12s}
+.notif-btn:hover{background:var(--bg4)}
+.notif-dot{position:absolute;top:5px;right:5px;width:8px;height:8px;border-radius:50%;background:var(--up);border:2px solid var(--bg2);animation:blink 1.5s ease-in-out infinite;display:none}
+.notif-dot.active{display:block}
+
+/* LEGEND BTN */
+.legend-btn{width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-family:var(--mono);font-size:13px;font-weight:500;color:var(--text3);transition:background .12s}
+.legend-btn:hover{background:var(--bg4);color:var(--accent)}
+
+/* NOTIFICATION PANEL */
+.notif-panel{display:none;position:absolute;top:54px;right:16px;width:320px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);box-shadow:0 8px 32px rgba(0,0,0,.12);z-index:500}
+.notif-panel.open{display:block}
+.np-hd{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border)}
+.np-title{font-size:13px;font-weight:700}
+.np-clear{font-size:11px;color:var(--accent);cursor:pointer;font-family:var(--mono)}
+.notif-item{padding:11px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+.notif-item:hover{background:var(--bg3)}
+.notif-item:last-child{border-bottom:none}
+.ni-meta{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.ni-type{font-size:10px;font-family:var(--mono);font-weight:500;padding:1px 6px;border-radius:3px}
+.ni-type.chip{background:rgba(109,60,201,.1);color:var(--purple)}
+.ni-type.custom{background:rgba(26,95,212,.1);color:var(--accent)}
+.ni-type.exdiv{background:rgba(180,116,0,.1);color:var(--gold)}
+.ni-time{font-size:11px;font-family:var(--mono);color:var(--text3);margin-left:auto}
+.ni-text{font-size:13px;color:var(--text);line-height:1.4}
+
+/* LEGEND PANEL */
+.legend-panel{display:none;position:absolute;top:54px;right:60px;width:280px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);box-shadow:0 8px 32px rgba(0,0,0,.12);z-index:500;padding:14px 16px}
+.legend-panel.open{display:block}
+.lp-title{font-size:13px;font-weight:700;margin-bottom:12px}
+.lp-row{display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--border)}
+.lp-row:last-child{border-bottom:none}
+.lp-icon{width:22px;text-align:center;flex-shrink:0}
+.lp-desc{font-size:12px;color:var(--text2)}
+.lp-label{font-size:11px;font-family:var(--mono);color:var(--text3);min-width:60px}
+
+/* TICKER */
+.ticker-bar{background:var(--bg3);border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none;cursor:grab;user-select:none}
+.ticker-bar::-webkit-scrollbar{display:none}
+.ticker-bar.grabbing{cursor:grabbing}
+.ticker-inner{display:flex;width:max-content;min-width:100%}
+
+.tk-night{background:rgba(109,60,201,.06);border-right-color:rgba(109,60,201,.2)}
+.tk-night .tk-label{color:var(--purple)}
+.tk-night .tk-price{color:var(--text)}
+.tk-tag{font-size:9px;font-family:var(--mono);font-weight:700;padding:1px 5px;border-radius:3px;background:rgba(109,60,201,.15);color:var(--purple);margin-right:4px;flex-shrink:0}
+.tk-item{display:flex;align-items:center;gap:10px;padding:8px 18px;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0;cursor:pointer;transition:background .12s}
+.tk-item:hover{background:var(--bg4)}
+.tk-label{font-size:11px;color:var(--text3);font-family:var(--mono)}
+.tk-price{font-family:var(--mono);font-size:14px;font-weight:500;color:var(--text)}
+.tk-chg{font-family:var(--mono);font-size:11px}
+
+/* LAYOUT */
+.app-body{display:grid;grid-template-columns:290px 1fr 320px;gap:12px;padding:12px;align-items:start}
+
+/* CARD */
+.card{background:var(--bg2);border-radius:var(--r);border:1px solid var(--border);box-shadow:var(--shadow);overflow:hidden}
+.card+.card{margin-top:12px}
+.card-hd{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border)}
+.card-title{font-size:13px;font-weight:700;color:var(--text)}
+.card-tag{font-size:11px;font-family:var(--mono);padding:3px 8px;border-radius:4px;background:var(--bg4);color:var(--text3)}
+
+/* WATCHLIST */
+.watch-search{padding:10px 12px;border-bottom:1px solid var(--border)}
+.sbox{display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r-sm);padding:8px 12px;transition:border-color .15s}
+.sbox:focus-within{border-color:var(--accent)}
+.sbox input{flex:1;border:none;background:transparent;font-family:var(--sans);font-size:14px;color:var(--text);outline:none}
+.sbox input::placeholder{color:var(--text3)}
+.grp-label{display:flex;align-items:center;justify-content:space-between;padding:8px 16px 7px;font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;background:var(--bg3);cursor:pointer;user-select:none;border-top:1px solid var(--border)}
+.grp-arrow{font-size:10px;transition:transform .2s}
+.grp-arrow.open{transform:rotate(90deg)}
+
+/* STOCK ROW */
+.srow{display:flex;align-items:center;padding:9px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;gap:8px}
+.srow:hover{background:var(--bg3)}
+.srow.active{background:var(--accent-bg);border-left:3px solid var(--accent);padding-left:13px}
+.srow:last-child{border-bottom:none}
+
+.s-top-row{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.s-signals-inline{display:flex;gap:2px;flex-wrap:wrap}
+.s-info{flex:1;min-width:0}
+.s-code{font-family:var(--mono);font-size:14px;font-weight:500;color:var(--text)}
+.s-name{font-size:11px;color:var(--text3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* SIGNAL ICONS in watchlist */
+.s-signals{display:flex;align-items:center;gap:3px;flex-shrink:0}
+.sig{width:18px;height:18px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;font-family:var(--mono);flex-shrink:0;line-height:1}
+.sig.fi-buy {background:rgba(212,43,43,.12);color:var(--up)}
+.sig.fi-sell{background:rgba(26,158,92,.12);color:var(--down)}
+.sig.ti-buy {background:rgba(212,43,43,.10);color:#b52020}
+.sig.ti-sell{background:rgba(26,158,92,.10);color:#147a47}
+.sig.both  {background:rgba(109,60,201,.1);color:var(--purple)}
+.sig.exdiv {background:rgba(180,116,0,.1);color:var(--gold)}
+.sig.holder{background:rgba(26,95,212,.1);color:var(--accent)}
+
+.s-nums{text-align:right;flex-shrink:0}
+.s-price{font-family:var(--mono);font-size:14px;font-weight:500}
+.s-pct{font-family:var(--mono);font-size:11px;margin-top:2px;padding:2px 6px;border-radius:3px;display:inline-block}
+
+/* CENTER */
+.center-col{display:flex;flex-direction:column;gap:12px}
+.hero{padding:16px 18px 12px;border-bottom:1px solid var(--border)}
+.hero-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.h-code{font-family:var(--mono);font-size:22px;font-weight:500;color:var(--text)}
+.h-name{font-size:14px;color:var(--text3);margin-top:3px}
+.h-price{font-family:var(--mono);font-size:30px;font-weight:500;text-align:right}
+.h-change{font-family:var(--mono);font-size:13px;margin-top:3px;text-align:right}
+.h-extra{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.h-badge{font-size:11px;font-family:var(--mono);padding:2px 8px;border-radius:4px;background:var(--bg4);color:var(--text3)}
+.h-badge.limit{background:rgba(212,43,43,.1);color:var(--up)}
+.h-badge.exdiv{background:rgba(180,116,0,.1);color:var(--gold)}
+
+/* PERIOD TABS — two rows */
+.period-row{display:flex;gap:4px;margin-top:12px;flex-wrap:wrap;align-items:center}
+.period-sep{width:1px;height:18px;background:var(--border);margin:0 4px;flex-shrink:0}
+.tbtn{font-family:var(--mono);font-size:11px;padding:4px 10px;border-radius:var(--r-sm);cursor:pointer;color:var(--text3);background:var(--bg3);border:1px solid var(--border);transition:all .12s;font-weight:500;white-space:nowrap}
+.tbtn:hover{color:var(--text);border-color:var(--border2)}
+.tbtn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+.chart-ph{margin:0 16px 14px;background:var(--bg3);border:1.5px dashed var(--border2);border-radius:var(--r-sm);min-height:220px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--text3);font-size:12px}
+
+/* STATS */
+.stats-grid{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid var(--border)}
+.stat-cell{padding:10px 8px;border-right:1px solid var(--border);text-align:center}
+.stat-cell:last-child{border-right:none}
+.stat-lbl{font-size:10px;color:var(--text3);font-family:var(--mono);margin-bottom:3px;display:flex;align-items:center;justify-content:center;gap:3px}
+.stat-val{font-family:var(--mono);font-size:13px;font-weight:500;color:var(--text)}
+.info-hint{width:13px;height:13px;border-radius:50%;background:var(--bg4);border:1px solid var(--border2);color:var(--text3);font-size:9px;font-family:var(--mono);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:background .12s}
+.info-hint:hover{background:var(--accent-bg);color:var(--accent)}
+
+/* TOOLTIP */
+.tooltip{position:fixed;background:#1a1d24;color:#fff;font-size:11px;padding:6px 10px;border-radius:6px;pointer-events:none;z-index:1000;opacity:0;transition:opacity .15s;max-width:240px;white-space:normal;line-height:1.5;box-shadow:0 4px 12px rgba(0,0,0,.2)}
+.tooltip.show{opacity:1}
+.info-hint{position:relative}
+
+/* DETAIL TABS */
+.dtab-bar{display:flex;border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none}
+.dtab-bar::-webkit-scrollbar{display:none}
+.dtab{padding:10px 14px;font-size:13px;font-weight:500;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;flex-shrink:0;transition:all .12s}
+.dtab:hover{color:var(--text)}
+.dtab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.dtab-pane{display:none;padding:14px 16px}
+.dtab-pane.active{display:block}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 20px}
+.info-cell .lbl{font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:3px;display:flex;align-items:center;gap:3px}
+.info-cell .val{font-family:var(--mono);font-size:14px;font-weight:500;color:var(--text)}
+.coming-soon{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80px;color:var(--text3);font-size:13px;gap:6px}
+
+/* CHIP TAB */
+.chip-section{margin-bottom:14px}
+.chip-title{font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+.chip-row{display:flex;align-items:center;gap:8px;padding:5px 0}
+.chip-lbl{font-size:12px;color:var(--text3);width:80px;flex-shrink:0}
+.chip-val{font-family:var(--mono);font-size:13px;font-weight:500;flex:1}
+.chip-streak{font-size:11px;font-family:var(--mono);padding:2px 7px;border-radius:3px}
+.streak-buy {background:var(--up-bg);color:var(--up)}
+.streak-sell{background:var(--down-bg);color:var(--down)}
+.signal-row{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;font-size:12px;margin-bottom:6px}
+.signal-row.both-buy {background:rgba(212,43,43,.07);color:#b52020}
+.signal-row.both-sell{background:rgba(26,158,92,.07);color:#147a47}
+.signal-row.neutral  {background:var(--bg4);color:var(--text3)}
+
+/* TDCC BAR CHART */
+.tdcc-wrap{overflow-x:auto;scrollbar-width:none}
+.tdcc-wrap::-webkit-scrollbar{display:none}
+.tdcc-table{width:100%;border-collapse:collapse}
+.tdcc-table th{font-size:10px;font-family:var(--mono);color:var(--text3);padding:4px 6px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--border);font-weight:500}
+.tdcc-table th:first-child{text-align:left}
+.tdcc-table td{font-size:11px;font-family:var(--mono);padding:4px 6px;text-align:right;border-bottom:1px solid var(--border)}
+.tdcc-table td:first-child{text-align:left;color:var(--text3)}
+.tdcc-bar-cell{padding:4px 6px!important}
+.tdcc-bar{height:12px;border-radius:2px;background:var(--accent-bg);border:1px solid rgba(26,95,212,.2);transition:width .4s}
+
+/* RIGHT */
+.right-col{display:flex;flex-direction:column;gap:12px}
+.ntab-bar{display:flex;border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none}
+.ntab-bar::-webkit-scrollbar{display:none}
+.ntab{padding:8px 13px;font-size:12px;font-weight:500;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;flex-shrink:0;transition:all .12s}
+.ntab:hover{color:var(--text)}
+.ntab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.npane{display:none;max-height:270px;overflow-y:auto}
+.npane.active{display:block}
+.nitem{padding:11px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+.nitem:hover{background:var(--bg3)}
+.nitem:last-child{border-bottom:none}
+.n-meta{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.n-src{font-size:11px;font-family:var(--mono);font-weight:500;color:var(--accent)}
+.n-time{font-size:11px;font-family:var(--mono);color:var(--text3)}
+.n-title{font-size:12px;color:var(--text);line-height:1.5}
+.n-tag{display:inline-block;margin-top:4px;font-size:10px;font-family:var(--mono);padding:1px 6px;border-radius:3px;background:var(--bg4);color:var(--text3)}
+.mitem{padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+.mitem:hover{background:var(--bg3)}
+.mitem:last-child{border-bottom:none}
+.m-meta{display:flex;justify-content:space-between;margin-bottom:3px}
+.m-code{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--gold)}
+.m-time{font-family:var(--mono);font-size:11px;color:var(--text3)}
+.m-title{font-size:12px;color:var(--text);line-height:1.45}
+
+/* MOBILE */
+.mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-top:1px solid var(--border);z-index:300;box-shadow:0 -2px 12px rgba(0,0,0,.06)}
+.mob-nav-inner{display:flex;justify-content:space-around;padding:5px 0 max(5px,env(safe-area-inset-bottom))}
+.mnav{display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px 12px;cursor:pointer;color:var(--text3);font-size:11px;border-radius:var(--r-sm);transition:color .12s;border:none;background:transparent;font-family:var(--sans)}
+.mnav.active{color:var(--accent)}
+
+
+/* EPS chart */
+
+
+/* inline chart toggle */
+.section-chart-btn{font-size:10px;font-family:var(--mono);padding:2px 8px;border-radius:3px;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--text3);transition:all .12s;flex-shrink:0}
+.section-chart-btn.open{background:var(--accent);color:#fff;border-color:var(--accent)}
+.inline-chart{display:none;margin-top:8px;padding:8px;background:var(--bg3);border-radius:6px;border:1px dashed var(--border2)}
+.inline-chart.open{display:block}
+.inline-chart canvas{width:100%!important;display:block}
+.chart-placeholder-sm{height:64px;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:11px;font-style:italic}
+/* chip 3-col rows */
+.chip-row3{display:grid;grid-template-columns:68px 1fr 1fr 1fr;gap:4px;padding:5px 0}
+.chip-val3{font-family:var(--mono);font-size:12px;font-weight:500;text-align:right}
+/* tdcc week buttons */
+.tdcc-wk-btn{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:3px;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--text3);transition:all .12s}
+.tdcc-wk-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.eps-mode-btn{font-family:var(--mono);font-size:10px;padding:3px 9px;border-radius:4px;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--text3);transition:all .12s}
+.eps-mode-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+/* Analyst */
+.analyst-item{padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+.analyst-item:hover{background:var(--bg3)}
+.analyst-item:last-child{border-bottom:none}
+.a-meta{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px}
+.a-firm{font-size:11px;font-family:var(--mono);font-weight:500;color:var(--text2)}
+.a-date{font-size:10px;font-family:var(--mono);color:var(--text3)}
+.a-row{display:flex;align-items:center;gap:6px}
+.a-rating{font-size:11px;font-family:var(--mono);font-weight:700;padding:1px 7px;border-radius:3px}
+.a-rating.buy {background:var(--up-bg);color:var(--up)}
+.a-rating.hold{background:var(--bg4);color:var(--text3)}
+.a-rating.sell{background:var(--down-bg);color:var(--down)}
+.a-target{font-size:11px;font-family:var(--mono);color:var(--text2)}
+.a-title{font-size:12px;color:var(--text);line-height:1.4;margin-top:3px}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+@media(max-width:1100px){.app-body{grid-template-columns:230px 1fr 270px}}
+@media(max-width:860px) and (max-width:1100px){
+  .app-body{grid-template-columns:240px 1fr 270px}
+}
+@media(max-width:680px){
+  .app-body{grid-template-columns:200px 1fr}
+  .right-col{display:none}
+}
+@media(min-width:601px) and (max-width:860px) and (orientation:landscape){
+  .app-body{grid-template-columns:170px 1fr 210px}
+  .right-col{display:flex}
+  .npane{max-height:180px}
+  .hero{padding:10px 14px 8px}
+  .h-price{font-size:22px}
+  .chart-ph{min-height:130px}
+  .card-hd{padding:10px 14px}
+}
+@media(max-width:600px){
+  body{font-size:15px}
+  .app-body{display:none!important}
+  .mob-body{display:none;padding:10px 10px 80px}
+  .mob-nav{display:none}
+  body.logged-in .mob-body{display:block!important}
+  body.logged-in .mob-nav{display:block!important}
+  .mob-section{display:none}
+  .mob-section.active{display:flex;flex-direction:column;gap:10px}
+  .hd-top{padding:0 12px;height:48px}
+  .stats-grid{grid-template-columns:repeat(3,1fr)}
+  .stats-grid .stat-cell:nth-child(4),.stats-grid .stat-cell:nth-child(5){border-top:1px solid var(--border)}
+  .h-price{font-size:24px}
+  .npane{max-height:none}
+  .ticker-bar{font-size:12px}
+  .tk-item{padding:7px 12px;gap:8px}
+  .tk-price{font-size:13px}
+  .card-hd{padding:10px 14px}
+  .srow{padding:10px 12px}
+}
+@media(max-width:600px) and (orientation:landscape){
+  .mob-body{padding:6px 10px 70px}
+  .mob-nav-inner{padding:4px 0 max(4px,env(safe-area-inset-bottom))}
+  .hd-top{height:40px}
+  .ticker-bar{display:none}
+}
+</style>
+
+  <script>
+    // iOS Safari 登入後頁面重新載入時，搶先恢復手機版顯示
+    // 不等 Firebase，讓畫面不空白
+    (function() {
+      var w = window.innerWidth;
+      var wasLoggedIn = sessionStorage.getItem('dash_logged_in');
+      if (wasLoggedIn && w <= 600) {
+        // 等 DOM 準備好後立刻顯示
+        document.addEventListener('DOMContentLoaded', function() {
+          var mb = document.getElementById('mobBody');
+          var mn = document.getElementById('mobNav');
+          var lw = document.getElementById('loginWall');
+          if (mb) mb.style.display = 'block';
+          if (mn) mn.style.display = 'block';
+          if (lw) lw.style.display = 'none';
+          document.body.classList.add('logged-in');
+        });
+      }
+    })();
+  </script>
+
+</head>
+<body>
+
+<header>
+  <div class="hd-top">
+    <div class="logo"><span class="live-dot"></span>MY DASHBOARD</div>
+    <div class="hd-space"></div>
+    <div class="mkt-badge">台股開盤中</div>
+    <div class="clock" id="clock">--:--:--</div>
+    <!-- 登入按鈕 -->
+    <div id="loginBtn" onclick="googleLogin()" style="display:flex;align-items:center;gap:6px;padding:5px 12px;background:var(--accent-bg);border:1px solid var(--accent);border-radius:6px;cursor:pointer;font-size:12px;color:var(--accent);font-weight:500;flex-shrink:0">
+      <svg width="14" height="14" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Google 登入
+    </div>
+    <!-- 已登入使用者 -->
+    <div id="userInfo" style="display:none;align-items:center;gap:8px;flex-shrink:0">
+      <img id="userAvatar" src="" width="28" height="28" style="border-radius:50%;border:1.5px solid var(--border2)">
+      <span id="userName" style="font-size:12px;color:var(--text2);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+      <div onclick="googleLogout()" style="font-size:11px;color:var(--text3);cursor:pointer;padding:3px 7px;border:1px solid var(--border);border-radius:4px;font-family:var(--mono)" title="登出">登出</div>
+    </div>
+    <div class="legend-btn" id="legendBtn" title="圖示說明">?</div>
+    <div class="notif-btn" id="notifBtn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <span class="notif-dot active" id="notifDot"></span>
+    </div>
+  </div>
+  <div class="ticker-bar" id="tickerBar"><div class="ticker-inner" id="tickerInner"></div></div>
+
+  <!-- Notification Panel -->
+  <div class="notif-panel" id="notifPanel">
+    <div class="np-hd"><span class="np-title">通知中心</span><span class="np-clear" onclick="clearNotifs()">全部清除</span></div>
+    <div id="notifList"></div>
+    <div style="padding:10px 16px;border-top:1px solid var(--border)">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:6px">通知設定</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <span style="font-size:11px;padding:3px 8px;border-radius:4px;background:var(--accent-bg);color:var(--accent);cursor:pointer">瀏覽器推播</span>
+        <span style="font-size:11px;padding:3px 8px;border-radius:4px;background:var(--bg4);color:var(--text3);cursor:pointer">LINE 設定</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Legend Panel -->
+  <div class="legend-panel" id="legendPanel">
+    <div class="lp-title">圖示說明</div>
+    <div class="lp-row"><div class="lp-icon"><div class="sig fi-buy" style="width:20px;height:16px">外↑</div></div><div class="lp-label">外資買超</div><div class="lp-desc">外資連續買超 N 日，數字代表天數</div></div>
+    <div class="lp-row"><div class="lp-icon"><div class="sig fi-sell" style="width:20px;height:16px">外↓</div></div><div class="lp-label">外資賣超</div><div class="lp-desc">外資連續賣超 N 日</div></div>
+    <div class="lp-row"><div class="lp-icon"><div class="sig ti-buy" style="width:20px;height:16px">投↑</div></div><div class="lp-label">投信買超</div><div class="lp-desc">投信連續買超 N 日</div></div>
+    <div class="lp-row"><div class="lp-icon"><div class="sig ti-sell" style="width:20px;height:16px">投↓</div></div><div class="lp-label">投信賣超</div><div class="lp-desc">投信連續賣超 N 日</div></div>
+    <div class="lp-row"><div class="lp-icon"><div class="sig both" style="width:20px;height:16px">同</div></div><div class="lp-label">土洋同向</div><div class="lp-desc">外資與投信同方向買賣，訊號較強</div></div>
+    <div class="lp-row"><div class="lp-icon"><div class="sig exdiv" style="width:20px;height:16px">息</div></div><div class="lp-label">即將除息</div><div class="lp-desc">7 日內有除息/除權，點看詳情</div></div>
+    <div class="lp-row"><div class="lp-icon"><div class="sig holder" style="width:20px;height:16px">大</div></div><div class="lp-label">大戶警示</div><div class="lp-desc">集保大戶（400張以上）持股比例週增幅異常，可能有法人佈局</div></div>
+    <div class="lp-row"><div class="lp-icon"><span style="width:8px;height:8px;border-radius:50%;background:var(--up);display:inline-block"></span></div><div class="lp-label">通知紅點</div><div class="lp-desc">有新的籌碼異動或自訂指標訊號</div></div>
+  </div>
+</header>
+<!-- ═══ 登入牆 ═══ -->
+<div id="loginWall" style="display:flex;position:fixed;inset:0;background:var(--bg);z-index:1000;flex-direction:column;align-items:center;justify-content:center;gap:20px">
+  <div style="text-align:center;margin-bottom:8px">
+    <div style="font-family:var(--mono);font-size:28px;font-weight:500;color:var(--accent);margin-bottom:8px">MY DASHBOARD</div>
+    <div style="font-size:15px;color:var(--text3)">你的個人股票看板</div>
+  </div>
+  <div onclick="googleLogin()" style="display:flex;align-items:center;gap:12px;padding:14px 28px;background:var(--bg2);border:1.5px solid var(--border2);border-radius:12px;cursor:pointer;font-size:15px;font-weight:500;color:var(--text);box-shadow:var(--shadow)">
+    <svg width="22" height="22" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+    使用 Google 帳號登入
+  </div>
+  <div style="font-size:12px;color:var(--text3);text-align:center;max-width:280px;line-height:1.6">
+    登入後你的自選股、群組設定會自動同步到所有裝置
+  </div>
+</div>
+
+
+<!-- DESKTOP -->
+<div class="app-body" id="desktopBody" style="display:none">
+  <!-- LEFT -->
+  <div>
+    <div class="card">
+      <div class="card-hd">
+        <span class="card-title">自選股</span>
+        <span class="card-tag" id="watchCount">0 檔</span>
+      </div>
+      <div class="watch-search">
+        <div class="sbox">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" id="searchInput" placeholder="搜尋代號或名稱…">
+        </div>
+      </div>
+      <div id="watchlistBody"></div>
+    </div>
+  </div>
+
+  <!-- CENTER -->
+  <div class="center-col">
+    <div class="card">
+      <div class="hero">
+        <div class="hero-row">
+          <div>
+            <div class="h-code" id="hCode">--</div>
+            <div class="h-name" id="hName">請選擇股票</div>
+          </div>
+          <div>
+            <div class="h-price" id="hPrice">--</div>
+            <div class="h-change" id="hChange"></div>
+          </div>
+        </div>
+        <div class="h-extra" id="hExtra"></div>
+        <div class="period-row" id="periodTabs">
+          <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">分線</span>
+          <button class="tbtn" data-p="1">1分</button>
+          <button class="tbtn" data-p="3">3分</button>
+          <button class="tbtn" data-p="5">5分</button>
+          <button class="tbtn" data-p="15">15分</button>
+          <button class="tbtn" data-p="30">30分</button>
+          <button class="tbtn" data-p="60">60分</button>
+          <div class="period-sep"></div>
+          <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">日線</span>
+          <button class="tbtn active" data-p="D">日</button>
+          <button class="tbtn" data-p="W">週</button>
+          <button class="tbtn" data-p="M">月</button>
+        </div>
+      </div>
+      <div class="chart-ph">
+        <svg width="40" height="40" viewBox="0 0 42 42" fill="none"><polyline points="2,36 12,22 20,28 30,10 40,16" stroke="var(--accent)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="40" cy="16" r="3" fill="var(--accent)"/></svg>
+        <span>K 線圖 — 第二階段接入 TradingView</span>
+        <span style="font-size:11px">支援 1/3/5/15/30/60分 + 日週月線，MA 天數可自訂</span>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-cell">
+          <div class="stat-lbl">開盤</div>
+          <div class="stat-val" id="sOpen">--</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-lbl up">最高</div>
+          <div class="stat-val up" id="sHigh">--</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-lbl down">最低</div>
+          <div class="stat-val down" id="sLow">--</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-lbl">收盤</div>
+          <div class="stat-val" id="sClose">--</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-lbl">成交量</div>
+          <div class="stat-val" id="sVol">--</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DETAIL TABS -->
+    <div class="card">
+      <div class="dtab-bar" id="detailTabBar">
+        <div class="dtab" data-d="basic">基本資料</div>
+        <div class="dtab active" data-d="chip">籌碼面</div>
+        <div class="dtab" data-d="fin">財務面</div>
+        <div class="dtab" data-d="tech">技術面</div>
+        <div class="dtab" data-d="custom">自訂指標</div>
+      </div>
+
+      <!-- 基本資料 -->
+      <div class="dtab-pane" id="dp-basic">
+        <div class="info-grid">
+          <div class="info-cell">
+            <div class="lbl">本益比 <span class="info-hint" data-tip="本益比 = 股價 ÷ 每股盈餘（EPS）。數字越低代表相對便宜，但不同產業標準不同。">?</span></div>
+            <div class="val" id="dPE">--</div>
+          </div>
+          <div class="info-cell">
+            <div class="lbl">殖利率 <span class="info-hint" data-tip="殖利率 = 現金股利 ÷ 股價 × 100%。代表買入這支股票每年可拿回多少%的現金股利。">?</span></div>
+            <div class="val" id="dYield">--</div>
+          </div>
+          <div class="info-cell">
+            <div class="lbl">股價淨值比 <span class="info-hint" data-tip="PB Ratio = 股價 ÷ 每股淨值。< 1 代表股價低於帳面價值，巴菲特常用此指標找低估股。">?</span></div>
+            <div class="val" id="dPB">--</div>
+          </div>
+          <div class="info-cell">
+            <div class="lbl">市值</div>
+            <div class="val" id="dMktCap">--</div>
+          </div>
+          <div class="info-cell">
+            <div class="lbl">52週區間</div>
+            <div class="val" id="d52w">--</div>
+          </div>
+          <div class="info-cell">
+            <div class="lbl">漲跌停價 <span class="info-hint" data-tip="台股當日漲停 = 前日收盤 × 1.1（無條件捨去至整數位），跌停 = 前日收盤 × 0.9。">?</span></div>
+            <div class="val" id="dLimit">--</div>
+          </div>
+          <div class="info-cell">
+            <div class="lbl">股本 / 張數</div>
+            <div class="val" id="dShares">--</div>
+          </div>
+          <div class="info-cell">
+            <div class="lbl">外資持股上限 <span class="info-hint" data-tip="部分台股（金融、電信等）法規限制外資持股比例上限。接近上限時外資無法再買入，可能影響外資動向。">?</span></div>
+            <div class="val" id="dForeignLimit">--</div>
+          </div>
+          <div class="info-cell" style="grid-column:span 2">
+            <div class="lbl">產業別</div>
+            <div class="val" id="dSector">--</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 籌碼面（預設） -->
+      <div class="dtab-pane active" id="dp-chip">
+        <div class="chip-section">
+          <div class="chip-title" style="display:flex;align-items:center;justify-content:space-between">
+            三大法人買賣超
+            <button class="section-chart-btn" onclick="toggleInlineChart('chart-legal',this)">圖表</button>
+          </div>
+          <div class="inline-chart" id="chart-legal">
+            <div class="chart-placeholder-sm">近 20 交易日 三大法人每日買賣超（張）— Phase 2 接入</div>
+          </div>
+          <!-- 三欄 header -->
+          <div style="display:grid;grid-template-columns:68px 1fr 1fr 1fr;gap:4px;font-size:10px;font-family:var(--mono);color:var(--text3);padding:0 0 4px;border-bottom:1px solid var(--border);margin-bottom:4px">
+            <span></span><span style="text-align:right">今日</span><span style="text-align:right">昨日</span><span style="text-align:right">近5日累計</span>
+          </div>
+          <!-- 外資 -->
+          <div class="chip-row3" id="cForeignRow">
+            <div class="chip-lbl">外資</div>
+            <div class="chip-val3 up" id="cF0">+8,420</div>
+            <div class="chip-val3" id="cF1" style="color:var(--text3)">+3,210</div>
+            <div class="chip-val3 up" id="cF5">+24,850</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;padding:2px 0 6px;border-bottom:1px solid var(--border)">
+            <span class="chip-streak streak-buy" id="cForeignStreak">連買 5 日</span>
+            <span style="font-size:10px;color:var(--text3);font-family:var(--mono)" id="cForeignHold">持股 73.2%（上限無）</span>
+          </div>
+          <!-- 投信 -->
+          <div class="chip-row3" id="cTrustRow">
+            <div class="chip-lbl">投信</div>
+            <div class="chip-val3 up" id="cT0">+1,250</div>
+            <div class="chip-val3" id="cT1" style="color:var(--text3)">+840</div>
+            <div class="chip-val3 up" id="cT5">+5,320</div>
+          </div>
+          <div style="padding:2px 0 6px;border-bottom:1px solid var(--border)">
+            <span class="chip-streak streak-buy" id="cTrustStreak">連買 3 日</span>
+          </div>
+          <!-- 自營商 -->
+          <div class="chip-row3">
+            <div class="chip-lbl">自營商</div>
+            <div class="chip-val3 down" id="cD0">-320</div>
+            <div class="chip-val3" id="cD1" style="color:var(--text3)">+180</div>
+            <div class="chip-val3 down" id="cD5">-1,240</div>
+          </div>
+          <div style="padding:2px 0 4px">
+            <span class="chip-streak streak-sell" id="cDealerStreak">連賣 2 日</span>
+          </div>
+        </div>
+        <div class="chip-section">
+          <div class="chip-title" style="display:flex;align-items:center;justify-content:space-between">
+            土洋同向訊號
+            <button class="section-chart-btn" onclick="toggleInlineChart('chart-signal',this)">圖表</button>
+          </div>
+          <div class="inline-chart" id="chart-signal">
+            <div class="chart-placeholder-sm">近 20 交易日 外資 vs 投信 淨買超對比走勢 — Phase 2 接入</div>
+          </div>
+          <div class="signal-row both-buy" id="signalRow">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+            外資 + 投信 同步買超，土洋同買訊號成立
+          </div>
+        </div>
+        <div class="chip-section">
+          <div class="chip-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
+            <span style="display:flex;align-items:center;gap:6px">集保大戶持股分布 <span class="info-hint" style="vertical-align:middle" data-tip="集保每週公布各持股人數分布，從 1 張到 1000 張以上共 17 個級距。大戶比例增加通常是偏多訊號。">?</span></span></span>
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <span style="font-size:10px;color:var(--text3);font-family:var(--mono)" id="tdccDateLabel">統計週：2024/04/15</span>
+              <div style="display:flex;gap:3px">
+                <button class="tdcc-wk-btn active" data-w="0" onclick="setTdccWeek(0,this)">本週</button>
+                <button class="tdcc-wk-btn" data-w="1" onclick="setTdccWeek(1,this)">上週</button>
+                <button class="tdcc-wk-btn" data-w="4" onclick="setTdccWeek(4,this)">4週前</button>
+                <button class="tdcc-wk-btn" data-w="12" onclick="setTdccWeek(12,this)">12週前</button>
+              </div>
+              <button class="section-chart-btn" onclick="toggleInlineChart('chart-tdcc',this)">趨勢圖</button>
+            </div>
+          </div>
+          <div class="inline-chart" id="chart-tdcc">
+            <div class="chart-placeholder-sm">近 52 週 大戶（400張+）持股比例歷史趨勢 — Phase 2 接入</div>
+          </div>
+          <div class="tdcc-wrap">
+            <table class="tdcc-table" id="tdccTable">
+              <thead><tr><th>級距</th><th>人數</th><th>持股%</th><th id="tdccDeltaHd">週變化</th><th style="min-width:80px">占比</th></tr></thead>
+              <tbody id="tdccBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 財務面 -->
+      <div class="dtab-pane" id="dp-fin">
+        <div class="chip-section">
+          <div class="chip-title" style="display:flex;align-items:center;justify-content:space-between">
+            <span>每股盈餘 EPS</span>
+            <div style="display:flex;gap:4px">
+              <button class="eps-mode-btn active" data-mode="quarter" onclick="setEpsMode('quarter',this)">單季</button>
+              <button class="eps-mode-btn" data-mode="cumul" onclick="setEpsMode('cumul',this)">累計</button>
+            </div>
+          </div>
+          <!-- EPS 長條圖 -->
+          <div style="position:relative;height:120px;margin-bottom:8px" id="epsChartWrap">
+            <canvas id="epsChart" style="width:100%;height:120px"></canvas>
+          </div>
+          <!-- EPS 數字列 -->
+          <div id="epsTable" style="display:grid;grid-template-columns:repeat(8,1fr);gap:4px;font-size:10px;text-align:center"></div>
+          <!-- 預測 EPS -->
+          <div style="margin-top:10px;padding:8px 10px;background:var(--accent-bg);border-radius:6px;border:1px solid rgba(26,95,212,.12)">
+            <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:6px">法人 EPS 預測（示意，Phase 2 接入）</div>
+            <div id="epsForecast" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px"></div>
+            <div style="font-size:10px;color:var(--text3);margin-top:6px">來源：Bloomberg 彙整各券商預測值，僅供參考，非投資建議</div>
+          </div>
+        </div>
+        <div class="chip-section">
+          <div class="chip-title" style="display:flex;align-items:center;justify-content:space-between">
+            關鍵財務指標
+            <div style="display:flex;gap:4px">
+              <button class="section-chart-btn" onclick="toggleInlineChart('chart-margin',this)">毛利/營益率</button>
+              <button class="section-chart-btn" onclick="toggleInlineChart('chart-roe',this)">ROE/ROA</button>
+            </div>
+          </div>
+          <div class="inline-chart" id="chart-margin">
+            <div class="chart-placeholder-sm">近 8 季 毛利率 / 營益率 / 淨利率（%）— Phase 2 接入</div>
+          </div>
+          <div class="inline-chart" id="chart-roe">
+            <div class="chart-placeholder-sm">近 12 季（3年）ROE / ROA 趨勢 — Phase 2 接入</div>
+          </div>
+          <div class="info-grid">
+            <div class="info-cell"><div class="lbl">毛利率 <span class="info-hint" data-tip="毛利率 = (營收 - 銷貨成本) ÷ 營收。越高代表產品競爭力越強，台積電約 50%+。">?</span></div><div class="val up" id="fGross">--</div></div>
+            <div class="info-cell"><div class="lbl">營益率 <span class="info-hint" data-tip="營業利益率 = 營業利益 ÷ 營收。扣除管銷費用後的獲利能力。">?</span></div><div class="val" id="fOp">--</div></div>
+            <div class="info-cell"><div class="lbl">淨利率</div><div class="val" id="fNet">--</div></div>
+            <div class="info-cell"><div class="lbl">ROE <span class="info-hint" data-tip="股東權益報酬率 = 稅後淨利 ÷ 股東權益。巴菲特標準：連續 5 年 ROE > 15% 才算優質。">?</span></div><div class="val up" id="fROE">--</div></div>
+            <div class="info-cell"><div class="lbl">ROA</div><div class="val" id="fROA">--</div></div>
+            <div class="info-cell"><div class="lbl">負債比</div><div class="val" id="fDebt">--</div></div>
+          </div>
+        </div>
+        <div class="chip-section">
+          <div class="chip-title" style="display:flex;align-items:center;justify-content:space-between">
+            月營收
+            <button class="section-chart-btn" onclick="toggleInlineChart('chart-revenue',this)">圖表</button>
+          </div>
+          <div class="inline-chart" id="chart-revenue">
+            <div class="chart-placeholder-sm">近 24 個月 月營收（億元）及年增率（%）— Phase 2 接入 MOPS</div>
+          </div>
+          <div class="coming-soon" style="min-height:50px;font-size:12px">月營收走勢圖 — 第二階段接入 MOPS</div>
+        </div>
+      </div>
+
+      <!-- 技術面 -->
+      <div class="dtab-pane" id="dp-tech">
+        <div class="chip-section">
+          <div class="chip-title">均線設定（可自訂天數）</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+            <input type="number" value="5"  style="width:52px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-family:var(--mono);font-size:12px;text-align:center" title="MA1">
+            <input type="number" value="10" style="width:52px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-family:var(--mono);font-size:12px;text-align:center" title="MA2">
+            <input type="number" value="20" style="width:52px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-family:var(--mono);font-size:12px;text-align:center" title="MA3">
+            <input type="number" value="60" style="width:52px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-family:var(--mono);font-size:12px;text-align:center" title="MA4">
+            <input type="number" value="120" style="width:52px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-family:var(--mono);font-size:12px;text-align:center" title="MA5">
+            <button style="padding:4px 10px;background:var(--accent);color:#fff;border:none;border-radius:4px;font-size:11px;cursor:pointer;font-family:var(--sans)">套用</button>
+          </div>
+        </div>
+        <div class="coming-soon">技術指標數值（MACD、RSI、KD、布林）— 第二階段接入</div>
+      </div>
+
+      <!-- 自訂指標 -->
+      <div class="dtab-pane" id="dp-custom">
+        <div class="chip-section">
+          <div class="chip-title">自訂選股條件</div>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:10px">設定條件後，每日收盤後自動掃描並通知</div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="display:flex;align-items:center;gap:6px;padding:8px 10px;background:var(--bg3);border-radius:6px;font-size:12px">
+              <input type="checkbox" checked style="accent-color:var(--accent)">
+              <span style="flex:1">外資連買 ≥ <input type="number" value="3" style="width:40px;padding:1px 4px;border:1px solid var(--border);border-radius:3px;font-family:var(--mono);font-size:11px"> 日 且 投信同買</span>
+              <span style="font-size:10px;color:var(--down);font-family:var(--mono)">未觸發</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;padding:8px 10px;background:var(--bg3);border-radius:6px;font-size:12px">
+              <input type="checkbox" checked style="accent-color:var(--accent)">
+              <span style="flex:1">RSI &lt; <input type="number" value="30" style="width:40px;padding:1px 4px;border:1px solid var(--border);border-radius:3px;font-family:var(--mono);font-size:11px"> 超賣</span>
+              <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">未設定</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;padding:8px 10px;background:var(--accent-bg);border-radius:6px;font-size:12px;border:1px solid rgba(26,95,212,.15)">
+              <input type="checkbox" checked style="accent-color:var(--accent)">
+              <span style="flex:1">大戶 400 張以上比例週增 ≥ <input type="number" value="2" style="width:40px;padding:1px 4px;border:1px solid var(--border);border-radius:3px;font-family:var(--mono);font-size:11px"> %</span>
+              <span style="font-size:10px;color:var(--up);font-family:var(--mono);font-weight:500">已觸發!</span>
+            </div>
+          </div>
+          <button style="margin-top:10px;padding:6px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;font-size:12px;cursor:pointer;font-family:var(--sans);color:var(--accent)">+ 新增條件</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="right-col">
+    <!-- 券商評等 -->
+    <div class="card">
+      <div class="card-hd">
+        <span class="card-title">券商評等</span>
+        <span class="card-tag" id="analystCode">2330</span>
+      </div>
+      <div style="padding:12px 16px;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <div style="flex:1">
+            <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:4px">目標價區間</div>
+            <div style="font-family:var(--mono);font-size:15px;font-weight:500" id="targetRange">NT$1,050 ~ 1,280</div>
+          </div>
+          <div style="text-align:center;padding:8px 14px;background:var(--down-bg);border-radius:8px">
+            <div style="font-size:10px;color:var(--text3);font-family:var(--mono)">共識評等</div>
+            <div style="font-family:var(--mono);font-size:14px;font-weight:700;color:var(--down)" id="consensusRating">強力買進</div>
+          </div>
+        </div>
+        <div id="ratingBar" style="display:flex;gap:3px;height:8px;border-radius:4px;overflow:hidden;margin-bottom:6px"></div>
+        <div id="ratingLegend" style="display:flex;gap:12px;font-size:10px;font-family:var(--mono)"></div>
+      </div>
+      <div style="max-height:200px;overflow-y:auto" id="analystReports"></div>
+      <div style="padding:8px 16px;font-size:10px;color:var(--text3);border-top:1px solid var(--border)">
+        資料來源：公開資訊觀測站、Yahoo Finance 彙整。僅供參考，非投資建議。
+      </div>
+    </div>
+
+    <!-- 即時新聞 -->
+    <div class="card">
+      <div class="card-hd"><span class="card-title">即時新聞</span><span class="card-tag">RSS</span></div>
+      <div class="ntab-bar" id="newsTabs">
+        <div class="ntab active" data-n="tw">國內</div>
+        <div class="ntab" data-n="intl">國際</div>
+      </div>
+      <div id="news-tw" class="npane active"></div>
+      <div id="news-intl" class="npane"></div>
+    </div>
+
+    <!-- 公開資訊觀測站 -->
+    <div class="card">
+      <div class="card-hd"><span class="card-title">公開資訊觀測站</span><span class="card-tag">MOPS</span></div>
+      <div class="ntab-bar" id="mopsTabs">
+        <div class="ntab active" data-m="ann">重大訊息</div>
+        <div class="ntab" data-m="inv">法說會</div>
+        <div class="ntab" data-m="bond">可轉債</div>
+      </div>
+      <div id="mops-ann"  class="npane active"></div>
+      <div id="mops-inv"  class="npane"></div>
+      <div id="mops-bond" class="npane"></div>
+    </div>
+  </div>
+<!-- MOBILE -->
+<div class="mob-body" id="mobBody" style="display:none">
+  <div class="mob-section active" id="ms-watch"></div>
+  <div class="mob-section" id="ms-chart"></div>
+  <div class="mob-section" id="ms-news"></div>
+  <div class="mob-section" id="ms-mops"></div>
+</div>
+<nav class="mob-nav" id="mobNav" style="display:none">
+  <div class="mob-nav-inner">
+    <button class="mnav active" onclick="switchMob('watch',this)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="4" rx="1"/><rect x="3" y="9" width="18" height="4" rx="1"/><rect x="3" y="15" width="18" height="4" rx="1"/></svg>自選股
+    </button>
+    <button class="mnav" onclick="switchMob('chart',this)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>圖表
+    </button>
+    <button class="mnav" onclick="switchMob('news',this)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a4 4 0 0 1-4 4z"/><line x1="10" y1="9" x2="18" y2="9"/><line x1="10" y1="13" x2="18" y2="13"/></svg>新聞
+    </button>
+    <button class="mnav" onclick="switchMob('mops',this)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg>公觀站
+    </button>
+  </div>
+</nav>
+
+<!-- TOOLTIP -->
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+// ════ DATA ════
+const INDICES=[
+  {label:'台指期夜盤', price:21912, pct:+0.31, tag:'夜盤'},
+  {label:'台灣加權',   price:21843.5,pct:+0.57},
+  {label:'櫃買指數',   price:238.12, pct:+0.80},
+  {label:'道　　瓊',   price:39142.2,pct:-0.23},
+  {label:'S&P 500',    price:5181.34,pct:+0.27},
+  {label:'NASDAQ',     price:16286.1,pct:+0.33},
+  {label:'日經 225',   price:38647.7,pct:-0.54},
+  {label:'韓 KOSPI',   price:2684.3, pct:+0.70},
+  {label:'恒　　生',   price:17284.5,pct:+1.12},
+  {label:'黃金現貨',   price:2345.6, pct:+0.35},
+  {label:'原油 WTI',   price:83.12,  pct:-0.54},
+  {label:'USD/TWD',    price:32.14,  pct:+0.25},
+];
+
+// signals: fi=外資(+連買/-連賣), ti=投信, both=土洋同向, exdiv=除息日距今天數
+const GROUPS=[
+  {id:'favorite', label:'我的自選股', codes:['2330','2454','NVDA']},
+  {id:'tw-core',  label:'台股核心',   codes:['2330','2317','2454','3008','2308']},
+  {id:'intl',     label:'國際股市',   codes:['EWJ','EWY','SPY','EWQ','EWG','EEM']},
+  {id:'us',       label:'美股科技',   codes:['AAPL','NVDA','MSFT','TSLA']},
+  {id:'custom',   label:'自訂',       codes:['6505','2882','1301']},
+];
+
+const S={
+  '2330':{name:'台積電',  price:980.0, chg:+12.0,pct:+1.24,open:968, high:983, low:965, close:980,  vol:'2.8萬',
+    pe:'28.4',yield:'1.8%',pb:'7.2',cap:'25.4兆',w52:'624~1080',shares:'259億/2590萬張',foreignLim:'無上限',sector:'半導體 › 晶圓代工',
+    limit:'+1078 / -802', fi:+5, ti:+3, both:true, exdiv:null, holderAlert:false,
+    spark:[940,952,960,945,970,966,980]},
+  '2317':{name:'鴻　海',  price:178.5, chg:-1.0, pct:-0.56,open:180, high:181, low:177, close:178.5,vol:'4.1萬',
+    pe:'11.2',yield:'5.2%',pb:'1.4',cap:'2.5兆', w52:'88~198',  shares:'141億/1410萬張',foreignLim:'49%（現 42%）',sector:'電子 › 電子製造服務（EMS）',
+    limit:'+196 / -161', fi:-2, ti:0, both:false, exdiv:6, holderAlert:false,
+    spark:[182,180,179,181,178,179,178]},
+  '2454':{name:'聯發科',  price:1285,  chg:+25,  pct:+1.98,open:1260,high:1290,low:1258,close:1285, vol:'1.2萬',
+    pe:'22.1',yield:'2.4%',pb:'4.8',cap:'2.0兆', w52:'750~1365',shares:'16億/160萬張',  foreignLim:'無上限',sector:'半導體 › IC設計',
+    limit:'+1414 / -1157', fi:+4, ti:+4, both:true, exdiv:null, holderAlert:true,
+    spark:[1230,1250,1260,1255,1270,1280,1285]},
+  '3008':{name:'大立光',  price:2280,  chg:+30,  pct:+1.33,open:2250,high:2295,low:2245,close:2280, vol:'0.3萬',
+    pe:'35.2',yield:'1.2%',pb:'6.1',cap:'3040億',w52:'1720~2640',shares:'1.3億/130萬張',foreignLim:'無上限',sector:'光電 › 光學鏡頭零件',
+    limit:'+2508 / -2052', fi:+1, ti:0, both:false, exdiv:null, holderAlert:false,
+    spark:[2200,2222,2240,2250,2260,2272,2280]},
+  '2308':{name:'台達電',  price:342,   chg:+5,   pct:+1.48,open:337, high:345, low:336, close:342,  vol:'0.8萬',
+    pe:'18.7',yield:'3.1%',pb:'3.2',cap:'9300億',w52:'238~368',  shares:'27億/270萬張',  foreignLim:'無上限',sector:'電子 › 電源零件',
+    limit:'+376 / -308', fi:+2, ti:+1, both:true, exdiv:null, holderAlert:false,
+    spark:[330,333,335,338,340,341,342]},
+  '1301':{name:'台塑',    price:72.4,  chg:-0.5, pct:-0.69,open:73,  high:73.2,low:72,  close:72.4, vol:'1.8萬',
+    pe:'18.1',yield:'5.8%',pb:'1.1',cap:'5800億',w52:'62~84',    shares:'80億/800萬張',  foreignLim:'無上限',sector:'化學 › 塑膠原料',
+    limit:'+79 / -65', fi:-1, ti:0, both:false, exdiv:4, holderAlert:false,
+    spark:[74,73.5,73,72.8,72.5,72.2,72.4]},
+  '1326':{name:'台化',    price:58.2,  chg:-0.3, pct:-0.51,open:58.5,high:58.8,low:58,  close:58.2, vol:'1.2萬',
+    pe:'15.6',yield:'6.5%',pb:'0.9',cap:'3700億',w52:'50~68',    shares:'63億/630萬張',  foreignLim:'無上限',sector:'化學 › 化學原料',
+    limit:'+64 / -52', fi:0, ti:-1, both:false, exdiv:null, holderAlert:false,
+    spark:[59,58.8,58.5,58.3,58.5,58.3,58.2]},
+  'AAPL':{name:'Apple',   price:189.3, chg:-0.8, pct:-0.42,open:190, high:191, low:188.5,close:189.3,vol:'5800萬',
+    pe:'29.1',yield:'0.5%',pb:'48.2',cap:'2.9兆U',w52:'164~199',shares:'154億股',foreignLim:'N/A',sector:'科技 › 消費性電子',
+    limit:'N/A', fi:0, ti:0, both:false, exdiv:null, holderAlert:false,
+    spark:[192,191,190,189,190,189,189.3]},
+  'NVDA':{name:'NVIDIA',  price:878.5, chg:+22.3,pct:+2.61,open:856, high:884, low:854, close:878.5,vol:'4200萬',
+    pe:'65.4',yield:'0.0%',pb:'32.8',cap:'2.2兆U',w52:'277~974',shares:'247億股',foreignLim:'N/A',sector:'半導體 › GPU / AI加速器',
+    limit:'N/A', fi:+3, ti:0, both:false, exdiv:null, holderAlert:true,
+    spark:[820,840,856,850,860,875,878]},
+  'MSFT':{name:'Microsoft',price:415.2,chg:+3.1, pct:+0.75,open:412, high:417, low:411, close:415.2,vol:'2100萬',
+    pe:'35.8',yield:'0.7%',pb:'13.1',cap:'3.1兆U',w52:'310~430',shares:'74億股',foreignLim:'N/A',sector:'科技 › 企業軟體與雲端',
+    limit:'N/A', fi:+1, ti:0, both:false, exdiv:null, holderAlert:false,
+    spark:[408,410,412,411,413,414,415]},
+  'TSLA':{name:'Tesla',   price:172.4, chg:-4.2, pct:-2.38,open:177, high:177.5,low:171, close:172.4,vol:'9800萬',
+    pe:'42.1',yield:'0.0%',pb:'8.4',cap:'5490億U',w52:'138~300',shares:'319億股',foreignLim:'N/A',sector:'汽車 › 電動車製造',
+    limit:'N/A', fi:-3, ti:0, both:false, exdiv:null, holderAlert:false,
+    spark:[180,178,176,175,173,172,172.4]},
+  'EWJ': {name:'日本 ETF',  price:68.42, chg:+0.12,pct:+0.18,open:68.2, high:68.8, low:68.0, close:68.42,vol:'820萬',
+    pe:'18.2',yield:'1.8%',pb:'1.4',cap:'--',w52:'54~72',shares:'--',foreignLim:'N/A',sector:'國際 › 日本指數 ETF（追蹤 MSCI Japan）',
+    limit:'N/A',fi:0,ti:0,both:false,exdiv:null,holderAlert:false,spark:[65,66,67,66.8,67.5,68,68.42]},
+  'EWY': {name:'韓國 ETF',  price:58.14, chg:-0.44,pct:-0.75,open:58.6, high:58.9, low:57.8, close:58.14,vol:'630萬',
+    pe:'12.4',yield:'2.1%',pb:'0.9',cap:'--',w52:'52~68',shares:'--',foreignLim:'N/A',sector:'國際 › 韓國指數 ETF（追蹤 MSCI Korea）',
+    limit:'N/A',fi:0,ti:0,both:false,exdiv:null,holderAlert:false,spark:[60,59.5,59,58.8,58.5,58.2,58.14]},
+  'SPY': {name:'S&P 500 ETF',price:518.74,chg:+1.42,pct:+0.27,open:517.2,high:519.8,low:516.8,close:518.74,vol:'5200萬',
+    pe:'22.8',yield:'1.3%',pb:'4.6',cap:'--',w52:'410~525',shares:'--',foreignLim:'N/A',sector:'國際 › 美國 S&P500 指數 ETF',
+    limit:'N/A',fi:0,ti:0,both:false,exdiv:null,holderAlert:false,spark:[510,512,514,513,516,517,518.74]},
+  'EWQ': {name:'法國 ETF',  price:32.18, chg:+0.28,pct:+0.88,open:31.9, high:32.4, low:31.8, close:32.18,vol:'180萬',
+    pe:'14.2',yield:'3.2%',pb:'1.6',cap:'--',w52:'28~34',shares:'--',foreignLim:'N/A',sector:'國際 › 法國指數 ETF（追蹤 MSCI France）',
+    limit:'N/A',fi:0,ti:0,both:false,exdiv:null,holderAlert:false,spark:[30.5,31,31.4,31.8,32,32.1,32.18]},
+  'EWG': {name:'德國 ETF',  price:31.46, chg:+0.38,pct:+1.22,open:31.1, high:31.6, low:30.9, close:31.46,vol:'220萬',
+    pe:'13.8',yield:'2.8%',pb:'1.5',cap:'--',w52:'26~33',shares:'--',foreignLim:'N/A',sector:'國際 › 德國指數 ETF（追蹤 MSCI Germany）',
+    limit:'N/A',fi:0,ti:0,both:false,exdiv:null,holderAlert:false,spark:[29.8,30.2,30.8,31,31.2,31.3,31.46]},
+  'EEM': {name:'新興市場 ETF',price:40.82,chg:+0.62,pct:+1.54,open:40.2,high:41.0,low:40.1,close:40.82,vol:'1800萬',
+    pe:'12.1',yield:'2.6%',pb:'1.3',cap:'--',w52:'36~44',shares:'--',foreignLim:'N/A',sector:'國際 › 新興市場 ETF（含台、韓、中、印）',
+    limit:'N/A',fi:0,ti:0,both:false,exdiv:null,holderAlert:false,spark:[38.5,39,39.5,40,40.2,40.6,40.82]},
+  '6505':{name:'台塑化',  price:89.2,  chg:-1.1, pct:-1.22,open:90.5,high:90.8,low:88.9,close:89.2, vol:'2.3萬',
+    pe:'14.2',yield:'6.8%',pb:'1.2',cap:'7400億',w52:'72~98',    shares:'83億/830萬張',  foreignLim:'無上限',sector:'化學 › 石油化工',
+    limit:'+98 / -80', fi:0, ti:-2, both:false, exdiv:null, holderAlert:false,
+    spark:[92,91,90,90.5,89.5,89,89.2]},
+  '2882':{name:'國泰金',  price:58.3,  chg:-0.2, pct:-0.34,open:58.5,high:58.8,low:58,  close:58.3, vol:'2.9萬',
+    pe:'10.5',yield:'5.5%',pb:'1.0',cap:'8200億',w52:'42~64',    shares:'141億/1410萬張',foreignLim:'30%（現 27%）',sector:'金融 › 金融控股公司',
+    limit:'+64 / -52', fi:-1, ti:0, both:false, exdiv:3, holderAlert:false,
+    spark:[59,58.8,58.5,58.3,58.5,58.3,58.3]},
+};
+
+const TDCC_SAMPLE=[
+  {range:'1~5 張',   persons:125840,pct:2.1, delta:+0.1},
+  {range:'6~10',     persons:38420, pct:1.8, delta:-0.1},
+  {range:'11~15',    persons:18600, pct:1.5, delta:0},
+  {range:'16~20',    persons:12400, pct:1.2, delta:0},
+  {range:'21~30',    persons:15800, pct:2.2, delta:+0.2},
+  {range:'31~50',    persons:18200, pct:3.8, delta:+0.3},
+  {range:'51~100',   persons:16400, pct:5.8, delta:+0.4},
+  {range:'101~200',  persons:8200,  pct:5.2, delta:-0.2},
+  {range:'201~400',  persons:4600,  pct:6.2, delta:+0.1},
+  {range:'401~600',  persons:2100,  pct:5.8, delta:+0.8},
+  {range:'601~800',  persons:1240,  pct:4.6, delta:+0.2},
+  {range:'801~1000', persons:840,   pct:3.8, delta:-0.1},
+  {range:'1001+ 張', persons:2840,  pct:56.0,delta:-1.7},
+];
+
+const NEWS_TW=[
+  {src:'鉅亨網',   t:'10:32',title:'台積電法說會揭示下半年強勁需求，AI 晶片訂單能見度延伸至 2026 年',tag:'台積電'},
+  {src:'經濟日報', t:'10:18',title:'台灣 3 月出口年增 21.3%，連續第 6 個月正成長，科技品項大幅領漲',tag:'總經'},
+  {src:'工商時報', t:'09:55',title:'聯發科天璣旗艦新品發表，手機 AI 算力大幅提升達業界最高水準',tag:'聯發科'},
+  {src:'Yahoo股市',t:'09:40',title:'外資連續 3 日買超台股逾 80 億，電子族群領漲、金融補漲跟進',tag:'外資'},
+  {src:'MoneyDJ', t:'09:22',title:'台達電拿下歐洲大廠儲能系統訂單，合約金額逾 50 億台幣',tag:'台達電'},
+  {src:'鉅亨網',  t:'08:50',title:'台股融資餘額連 5 日下降，法人解讀籌碼持續沉澱整理健康',tag:'台股'},
+];
+const NEWS_INTL=[
+  {src:'金十數據', t:'10:28',title:'美聯儲官員：通膨仍具黏性，不急於在 6 月前啟動降息循環',tag:'Fed'},
+  {src:'金十數據', t:'10:05',title:'中國 3 月 PMI 超預期回升至 50.8，製造業景氣重回擴張區間',tag:'中國'},
+  {src:'Reuters',  t:'09:48',title:'WTI 原油跌破 83 美元，市場靜候 OPEC+ 五月產量政策決策',tag:'原油'},
+  {src:'Bloomberg',t:'09:30',title:'黃金站穩 2340 美元，中東緊張局勢持續推升全球避險買盤',tag:'黃金'},
+  {src:'金十數據', t:'09:10',title:'日本央行維持利率不變，但暗示年內仍存在進一步升息可能性',tag:'日本'},
+  {src:'Reuters',  t:'08:45',title:'歐盟對中國電動車加徵關稅談判陷僵局，貿易緊張情緒升溫',tag:'貿易'},
+];
+const MOPS_ANN=[
+  {code:'2330 台積電',t:'10:28',title:'本公司宣布 2024 年第一季法說會時間及視訊參與方式'},
+  {code:'2454 聯發科',t:'09:50',title:'重大訊息：取得美國發明專利共計 12 項（詳如附件）'},
+  {code:'3008 大立光',t:'09:30',title:'公告本公司 2024 年 3 月份自結營收'},
+  {code:'2882 國泰金',t:'09:15',title:'子公司國泰人壽辦理私募普通公司債發行案'},
+  {code:'6505 台塑化',t:'08:55',title:'公告本公司董事會通過現金增資暨發行新股案'},
+];
+const MOPS_INV=[
+  {code:'2330 台積電',t:'04/18',title:'2024 年第一季業績發表暨法人說明會'},
+  {code:'2454 聯發科',t:'04/25',title:'2024 年第一季法人說明會（線上視訊）'},
+  {code:'2881 富邦金',t:'04/26',title:'2024 年第一季業績法人說明會'},
+  {code:'2317 鴻　海',t:'04/30',title:'2024 第一季業績暨 AI 伺服器策略說明會'},
+];
+const MOPS_BOND=[
+  {code:'3661 世芯-KY',t:'04/15',title:'發行第一次無擔保國內轉換公司債，金額 20 億'},
+  {code:'6488 環球晶', t:'04/12',title:'發行第三次無擔保海外可轉換公司債（ECB）'},
+  {code:'4958 臻鼎-KY',t:'04/08',title:'發行第二次無擔保國內轉換公司債，金額 15 億'},
+];
+
+const NOTIFS=[
+  {type:'custom',label:'自訂',text:'2454 聯發科：大戶 400 張以上比例週增 3.2%，條件已觸發',time:'10:15'},
+  {type:'chip',  label:'籌碼',text:'2454 聯發科：外資 + 投信連續 4 日同步買超，土洋同買訊號',time:'09:45'},
+  {type:'exdiv', label:'除息',text:'2317 鴻海：距除息日僅剩 6 天（04/28），現金股利 2.80 元',time:'08:30'},
+  {type:'chip',  label:'籌碼',text:'NVDA：外資連買 3 日，大戶持股比例週增 2.8%',time:'昨日'},
+  {type:'exdiv', label:'除息',text:'2882 國泰金：距除息日僅剩 3 天（04/25），現金股利 1.05 元',time:'昨日'},
+];
+
+// ════ UTILS ════
+const sgn=v=>v>0?'+':'';
+const cls=v=>v>0?'up':v<0?'down':'flat';
+const bc =v=>v>0?'bu':v<0?'bd':'bf';
+function spark(data,pct,w=52,h=28){
+  const mn=Math.min(...data),mx=Math.max(...data),rng=mx-mn||1;
+  const pts=data.map((v,i)=>{
+    const x=2+i*(w-4)/(data.length-1);
+    const y=h-2-(v-mn)/rng*(h-4);
+    return x.toFixed(1)+','+y.toFixed(1);
+  }).join(' ');
+  const col=pct>0?'var(--up)':pct<0?'var(--down)':'var(--flat)';
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" fill="none"><polyline points="${pts}" stroke="${col}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+}
+
+// ════ CLOCK ════
+function tick(){const n=new Date();document.getElementById('clock').textContent=[n.getHours(),n.getMinutes(),n.getSeconds()].map(x=>String(x).padStart(2,'0')).join(':')}
+tick();setInterval(tick,1000);
+
+// ════ TICKER ════
+const ti=document.getElementById('tickerInner');
+INDICES.forEach(idx=>{
+  const el=document.createElement('div');
+  el.className='tk-item'+(idx.tag==='夜盤'?' tk-night':'');
+  const tagHtml=idx.tag?`<span class="tk-tag">${idx.tag}</span>`:'';
+  el.innerHTML=`${tagHtml}<span class="tk-label">${idx.label}</span><span class="tk-price">${idx.price.toLocaleString()}</span><span class="tk-chg ${cls(idx.pct)}">${sgn(idx.pct)}${idx.pct.toFixed(2)}%</span>`;
+  ti.appendChild(el);
+});
+const tb=document.getElementById('tickerBar');
+let isDown=false,startX,scrollL;
+tb.addEventListener('mousedown',e=>{isDown=true;tb.classList.add('grabbing');startX=e.pageX-tb.offsetLeft;scrollL=tb.scrollLeft});
+['mouseleave','mouseup'].forEach(ev=>tb.addEventListener(ev,()=>{isDown=false;tb.classList.remove('grabbing')}));
+tb.addEventListener('mousemove',e=>{if(!isDown)return;e.preventDefault();tb.scrollLeft=scrollL-(e.pageX-tb.offsetLeft-startX)*1.4});
+
+// ════ NOTIFICATIONS ════
+function renderNotifs(){
+  const list=document.getElementById('notifList');
+  list.innerHTML=NOTIFS.map(n=>`
+    <div class="notif-item">
+      <div class="ni-meta">
+        <span class="ni-type ${n.type}">${n.label}</span>
+        <span class="ni-time">${n.time}</span>
+      </div>
+      <div class="ni-text">${n.text}</div>
+    </div>`).join('');
+}
+function clearNotifs(){
+  document.getElementById('notifList').innerHTML='<div style="padding:16px;text-align:center;color:var(--text3);font-size:12px">暫無通知</div>';
+  document.getElementById('notifDot').classList.remove('active');
+}
+renderNotifs();
+
+document.getElementById('notifBtn').addEventListener('click',e=>{
+  e.stopPropagation();
+  document.getElementById('notifPanel').classList.toggle('open');
+  document.getElementById('legendPanel').classList.remove('open');
+});
+document.getElementById('legendBtn').addEventListener('click',e=>{
+  e.stopPropagation();
+  document.getElementById('legendPanel').classList.toggle('open');
+  document.getElementById('notifPanel').classList.remove('open');
+});
+document.addEventListener('click',()=>{
+  document.getElementById('notifPanel').classList.remove('open');
+  document.getElementById('legendPanel').classList.remove('open');
+});
+['notifPanel','legendPanel'].forEach(id=>document.getElementById(id).addEventListener('click',e=>e.stopPropagation()));
+
+// ════ TOOLTIP ════
+const tooltip=document.getElementById('tooltip');
+document.addEventListener('mouseover',e=>{
+  const hint=e.target.closest('.info-hint');
+  if(!hint)return;
+  tooltip.textContent=hint.dataset.tip;
+  tooltip.classList.add('show');
+});
+document.addEventListener('mousemove',e=>{
+  const x = e.clientX, y = e.clientY;
+  const vw = window.innerWidth;
+  // flip to left if near right edge
+  if(x + 260 > vw) tooltip.style.left=(x-260)+'px';
+  else tooltip.style.left=(x+14)+'px';
+  tooltip.style.top=(y-4)+'px';
+});
+document.addEventListener('mouseout',e=>{
+  if(!e.target.closest('.info-hint'))tooltip.classList.remove('show');
+});
+
+// ════ SIGNAL BADGES ════
+function buildSignals(s){
+  const parts=[];
+  const fiShown = s.fi!==0, tiShown = s.ti!==0;
+  if(s.fi>0) parts.push(`<div class="sig fi-buy" title="外資連買${s.fi}日">外+${s.fi}</div>`);
+  else if(s.fi<0) parts.push(`<div class="sig fi-sell" title="外資連賣${Math.abs(s.fi)}日">外-${Math.abs(s.fi)}</div>`);
+  if(s.ti>0) parts.push(`<div class="sig ti-buy" title="投信連買${s.ti}日">投+${s.ti}</div>`);
+  else if(s.ti<0) parts.push(`<div class="sig ti-sell" title="投信連賣${Math.abs(s.ti)}日">投-${Math.abs(s.ti)}</div>`);
+  // 只有在外資或投信其中一個沒有顯示時，才補「同」標籤（避免資訊重複）
+  if(s.both && (!fiShown || !tiShown)) parts.push(`<div class="sig both" title="土洋同向">同</div>`);
+  if(s.exdiv!=null) parts.push(`<div class="sig exdiv" title="距除息/除權${s.exdiv}天">息${s.exdiv}</div>`);
+  if(s.holderAlert) parts.push(`<div class="sig holder" title="大戶持股比例異動警示">大</div>`);
+  return parts.join('');
+}
+
+// ════ WATCHLIST ════
+let activeCode=null;
+function renderWatch(filter=''){
+  const c=document.getElementById('watchlistBody');c.innerHTML='';
+  let total=0;
+  GROUPS.forEach(grp=>{
+    const match=grp.codes.filter(code=>{
+      const s=S[code];if(!s)return false;
+      const q=filter.toLowerCase();
+      return !q||code.toLowerCase().includes(q)||s.name.includes(q);
+    });
+    if(!match.length)return;
+    total+=match.length;
+    const lbl=document.createElement('div');lbl.className='grp-label';
+    lbl.innerHTML=`<span>${grp.label}</span><span class="grp-arrow open">▶</span>`;
+    const body=document.createElement('div');
+    let open=true;
+    lbl.addEventListener('click',()=>{open=!open;lbl.querySelector('.grp-arrow').classList.toggle('open',open);body.style.display=open?'':'none'});
+    c.appendChild(lbl);
+    match.forEach(code=>{
+      const s=S[code];
+      const row=document.createElement('div');
+      row.className='srow'+(code===activeCode?' active':'');
+      row.dataset.code=code;
+      const sigs = buildSignals(s);
+      row.innerHTML=`
+        <div class="s-info">
+          <div class="s-top-row">
+            <span class="s-code">${code}</span>
+            ${sigs ? `<div class="s-signals-inline">${sigs}</div>` : ''}
+          </div>
+          <div class="s-name">${s.name}</div>
+        </div>
+        <div>${spark(s.spark,s.pct)}</div>
+        <div class="s-nums">
+          <div class="s-price ${cls(s.pct)}">${s.price.toLocaleString()}</div>
+          <div class="s-pct ${bc(s.pct)}">${sgn(s.pct)}${s.pct.toFixed(2)}%</div>
+        </div>`;
+      row.addEventListener('click',()=>selectStock(code));
+      body.appendChild(row);
+    });
+    c.appendChild(body);
+  });
+  document.getElementById('watchCount').textContent=total+' 檔';
+}
+
+function selectStock(code){
+  activeCode=code;const s=S[code];if(!s)return;
+  document.querySelectorAll('.srow').forEach(r=>r.classList.toggle('active',r.dataset.code===code));
+  document.getElementById('hCode').textContent=code;
+  document.getElementById('hName').textContent=s.name;
+  const pe=document.getElementById('hPrice');pe.textContent=s.price.toLocaleString();pe.className='h-price '+cls(s.pct);
+  const ce=document.getElementById('hChange');ce.textContent=sgn(s.chg)+s.chg+' ('+sgn(s.pct)+s.pct.toFixed(2)+'%)';ce.className='h-change '+cls(s.pct);
+  // extra badges
+  const extra=document.getElementById('hExtra');
+  let badges='';
+  if(s.exdiv!=null) badges+=`<span class="h-badge exdiv">息 ${s.exdiv} 天後</span>`;
+  if(s.foreignLim!=='無上限'&&s.foreignLim!=='N/A') badges+=`<span class="h-badge limit">外資上限 ${s.foreignLim}</span>`;
+  extra.innerHTML=badges;
+  // stats
+  document.getElementById('sOpen').textContent=s.open.toLocaleString();
+  document.getElementById('sHigh').textContent=s.high.toLocaleString();
+  document.getElementById('sLow').textContent=s.low.toLocaleString();
+  document.getElementById('sClose').textContent=s.close.toLocaleString();
+  document.getElementById('sVol').textContent=s.vol;
+  // basic tab
+  document.getElementById('dPE').textContent=s.pe;
+  document.getElementById('dYield').textContent=s.yield;
+  document.getElementById('dPB').textContent=s.pb;
+  document.getElementById('dMktCap').textContent=s.cap;
+  document.getElementById('d52w').textContent=s.w52;
+  document.getElementById('dLimit').textContent=s.limit;
+  document.getElementById('dShares').textContent=s.shares;
+  document.getElementById('dForeignLimit').textContent=s.foreignLim;
+  document.getElementById('dSector').textContent=s.sector;
+  // chip tab
+  renderChipTab(s);
+  // tdcc
+  setTdccWeek(0, document.querySelector('.tdcc-wk-btn[data-w="0"]'));
+  // fin tab
+  renderFinTab(code);
+  // analyst panel
+  renderAnalystPanel(code);
+  renderMobChart(code,s);
+}
+
+
+
+/* renderTDCC replaced by setTdccWeek */
+
+// ════ PERIOD TABS ════
+document.getElementById('periodTabs').addEventListener('click',e=>{
+  const b=e.target.closest('.tbtn');if(!b)return;
+  document.querySelectorAll('#periodTabs .tbtn').forEach(x=>x.classList.remove('active'));b.classList.add('active');
+});
+
+// ════ DETAIL TABS ════
+document.getElementById('detailTabBar').addEventListener('click',e=>{
+  const tab=e.target.closest('.dtab');if(!tab)return;
+  document.querySelectorAll('.dtab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.dtab-pane').forEach(p=>p.classList.remove('active'));
+  tab.classList.add('active');
+  document.getElementById('dp-'+tab.dataset.d).classList.add('active');
+});
+
+// ════ NEWS & MOPS ════
+function setupTabs(barId,prefix){
+  document.getElementById(barId).addEventListener('click',e=>{
+    const tab=e.target.closest('.ntab');if(!tab)return;
+    const bar=document.getElementById(barId);
+    bar.querySelectorAll('.ntab').forEach(t=>t.classList.remove('active'));tab.classList.add('active');
+    const card=bar.closest('.card');
+    card.querySelectorAll('.npane').forEach(p=>p.classList.remove('active'));
+    const k=tab.dataset.n||tab.dataset.m;
+    const pane=document.getElementById(prefix+k);if(pane)pane.classList.add('active');
+  });
+}
+setupTabs('newsTabs','news-');
+setupTabs('mopsTabs','mops-');
+
+function renderNews(items,id){
+  const el=document.getElementById(id);if(!el)return;
+  el.innerHTML=items.map(n=>`<div class="nitem"><div class="n-meta"><span class="n-src">${n.src}</span><span class="n-time">${n.t}</span></div><div class="n-title">${n.title}</div><span class="n-tag">${n.tag}</span></div>`).join('');
+}
+function renderMops(items,id){
+  const el=document.getElementById(id);if(!el)return;
+  el.innerHTML=items.map(m=>`<div class="mitem"><div class="m-meta"><span class="m-code">${m.code}</span><span class="m-time">${m.t}</span></div><div class="m-title">${m.title}</div></div>`).join('');
+}
+renderNews(NEWS_TW,'news-tw');renderNews(NEWS_INTL,'news-intl');
+renderMops(MOPS_ANN,'mops-ann');renderMops(MOPS_INV,'mops-inv');renderMops(MOPS_BOND,'mops-bond');
+
+// ════ MOBILE ════
+function isMob(){return window.innerWidth<=600}
+function applyLayout(){
+  const w = window.innerWidth;
+  const m = w <= 600;
+  if (!window._loggedIn) return;
+  // 手機版由 CSS body.logged-in 控制，這裡只處理桌面版
+  if (!m) {
+    document.getElementById('desktopBody').style.display = '';
+  }
+}
+function switchMob(key,btn){
+  document.querySelectorAll('.mob-section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.mnav').forEach(b=>b.classList.remove('active'));
+  document.getElementById('ms-'+key).classList.add('active');
+  if(btn)btn.classList.add('active');
+}
+function buildMobWatch(){
+  const el=document.getElementById('ms-watch');el.innerHTML='';
+  const card=document.createElement('div');card.className='card';
+  card.innerHTML=`<div class="card-hd"><span class="card-title">自選股</span></div><div class="watch-search"><div class="sbox"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><input type="text" id="mobSearch" placeholder="搜尋…"></div></div><div id="mobWL"></div>`;
+  el.appendChild(card);
+  document.getElementById('mobSearch').addEventListener('input',e=>renderMobWatch(e.target.value));
+  renderMobWatch();
+}
+function renderMobWatch(filter=''){
+  const c=document.getElementById('mobWL');if(!c)return;c.innerHTML='';
+  GROUPS.forEach(grp=>{
+    const match=grp.codes.filter(code=>{const s=S[code];if(!s)return false;const q=filter.toLowerCase();return !q||code.toLowerCase().includes(q)||s.name.includes(q)});
+    if(!match.length)return;
+    const lbl=document.createElement('div');lbl.className='grp-label';lbl.innerHTML=`<span>${grp.label}</span>`;c.appendChild(lbl);
+    match.forEach(code=>{
+      const s=S[code];const row=document.createElement('div');row.className='srow'+(code===activeCode?' active':'');row.dataset.code=code;
+      const msigs = buildSignals(s);
+      row.innerHTML=`<div class="s-info"><div class="s-top-row"><span class="s-code">${code}</span>${msigs?`<div class="s-signals-inline">${msigs}</div>`:''}</div><div class="s-name">${s.name}</div></div><div>${spark(s.spark,s.pct)}</div><div class="s-nums"><div class="s-price ${cls(s.pct)}">${s.price.toLocaleString()}</div><div class="s-pct ${bc(s.pct)}">${sgn(s.pct)}${s.pct.toFixed(2)}%</div></div>`;
+      row.addEventListener('click',()=>{selectStock(code);switchMob('chart',document.querySelectorAll('.mnav')[1])});
+      c.appendChild(row);
+    });
+  });
+}
+function renderMobChart(code,s){
+  const el=document.getElementById('ms-chart');if(!el)return;
+  el.innerHTML=`<div class="card"><div class="hero"><div class="hero-row"><div><div class="h-code">${code}</div><div class="h-name">${s.name}</div></div><div><div class="h-price ${cls(s.pct)}">${s.price.toLocaleString()}</div><div class="h-change ${cls(s.pct)}">${sgn(s.chg)}${s.chg} (${sgn(s.pct)}${s.pct.toFixed(2)}%)</div></div></div><div class="h-extra">${s.exdiv!=null?`<span class="h-badge exdiv">息 ${s.exdiv} 天後</span>`:''}</div><div class="period-row" style="margin-top:10px"><button class="tbtn">1分</button><button class="tbtn">5分</button><button class="tbtn">15分</button><button class="tbtn">30分</button><button class="tbtn">60分</button><button class="tbtn active">日</button><button class="tbtn">週</button><button class="tbtn">月</button></div></div><div class="chart-ph"><svg width="38" height="38" viewBox="0 0 42 42" fill="none"><polyline points="2,36 12,22 20,28 30,10 40,16" stroke="var(--accent)" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg><span>K 線圖 — 第二階段接入</span></div><div class="stats-grid"><div class="stat-cell"><div class="stat-lbl">開盤</div><div class="stat-val">${s.open}</div></div><div class="stat-cell"><div class="stat-lbl up">最高</div><div class="stat-val up">${s.high}</div></div><div class="stat-cell"><div class="stat-lbl down">最低</div><div class="stat-val down">${s.low}</div></div><div class="stat-cell"><div class="stat-lbl">收盤</div><div class="stat-val">${s.close}</div></div><div class="stat-cell"><div class="stat-lbl">成交量</div><div class="stat-val">${s.vol}</div></div></div></div>`;
+}
+function buildMobNews(){
+  const el=document.getElementById('ms-news');
+  el.innerHTML=`
+  <div class="card">
+    <div class="card-hd"><span class="card-title">券商評等</span><span class="card-tag" id="mAnalystCode">--</span></div>
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div style="flex:1">
+          <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:4px">目標價區間</div>
+          <div style="font-family:var(--mono);font-size:15px;font-weight:500" id="mTargetRange">--</div>
+        </div>
+        <div style="text-align:center;padding:8px 14px;background:var(--down-bg);border-radius:8px">
+          <div style="font-size:10px;color:var(--text3);font-family:var(--mono)">共識評等</div>
+          <div style="font-family:var(--mono);font-size:14px;font-weight:700;color:var(--down)" id="mConsensusRating">--</div>
+        </div>
+      </div>
+      <div id="mRatingBar" style="display:flex;gap:3px;height:8px;border-radius:4px;overflow:hidden;margin-bottom:6px"></div>
+      <div id="mRatingLegend" style="display:flex;gap:12px;font-size:10px;font-family:var(--mono)"></div>
+    </div>
+    <div style="max-height:180px;overflow-y:auto" id="mAnalystReports"></div>
+  </div>
+  <div class="card"><div class="card-hd"><span class="card-title">即時新聞</span><span class="card-tag">RSS</span></div><div class="ntab-bar" id="mnt"><div class="ntab active" data-n="tw">國內</div><div class="ntab" data-n="intl">國際</div></div><div id="mn-tw" class="npane active" style="max-height:none"></div><div id="mn-intl" class="npane" style="max-height:none"></div></div>`;
+  renderNews(NEWS_TW,'mn-tw');renderNews(NEWS_INTL,'mn-intl');
+  document.getElementById('mnt').addEventListener('click',e=>{const t=e.target.closest('.ntab');if(!t)return;document.querySelectorAll('#mnt .ntab').forEach(x=>x.classList.remove('active'));t.classList.add('active');['mn-tw','mn-intl'].forEach(i=>document.getElementById(i).classList.remove('active'));document.getElementById('mn-'+t.dataset.n).classList.add('active')});
+}
+function buildMobMops(){
+  const el=document.getElementById('ms-mops');
+  el.innerHTML=`<div class="card"><div class="card-hd"><span class="card-title">公開資訊觀測站</span><span class="card-tag">MOPS</span></div><div class="ntab-bar" id="mmt"><div class="ntab active" data-m="ann">重大訊息</div><div class="ntab" data-m="inv">法說會</div><div class="ntab" data-m="bond">可轉債</div></div><div id="mm-ann" class="npane active" style="max-height:none"></div><div id="mm-inv" class="npane" style="max-height:none"></div><div id="mm-bond" class="npane" style="max-height:none"></div></div>`;
+  renderMops(MOPS_ANN,'mm-ann');renderMops(MOPS_INV,'mm-inv');renderMops(MOPS_BOND,'mm-bond');
+  document.getElementById('mmt').addEventListener('click',e=>{const t=e.target.closest('.ntab');if(!t)return;document.querySelectorAll('#mmt .ntab').forEach(x=>x.classList.remove('active'));t.classList.add('active');['mm-ann','mm-inv','mm-bond'].forEach(i=>document.getElementById(i).classList.remove('active'));document.getElementById('mm-'+t.dataset.m).classList.add('active')});
+}
+
+
+// ════ EPS & FINANCIAL DATA ════
+const FIN = {
+  '2330':{gross:'53.1%',op:'42.6%',net:'38.9%',roe:'26.5%',roa:'17.2%',debt:'31.4%',
+    epsQ:[{q:'Q1 24',v:8.70},{q:'Q4 23',v:7.01},{q:'Q3 23',v:6.54},{q:'Q2 23',v:5.18},{q:'Q1 23',v:4.97},{q:'Q4 22',v:5.14},{q:'Q3 22',v:8.12},{q:'Q2 22',v:7.39}],
+    epsForecast:[{firm:'Morgan Stanley',yr:'FY24E',eps:'32.8',rating:'buy'},{firm:'Goldman Sachs',yr:'FY24E',eps:'31.5',rating:'buy'},{firm:'JP Morgan',yr:'FY24E',eps:'33.2',rating:'buy'}],
+    ratings:{buy:18,hold:4,sell:0},targetRange:'NT$1,050 ~ 1,280',consensus:'強力買進'},
+  '2317':{gross:'6.2%',op:'3.8%',net:'3.1%',roe:'11.8%',roa:'5.2%',debt:'52.4%',
+    epsQ:[{q:'Q1 24',v:1.82},{q:'Q4 23',v:1.56},{q:'Q3 23',v:1.74},{q:'Q2 23',v:1.48},{q:'Q1 23',v:1.62},{q:'Q4 22',v:1.41},{q:'Q3 22',v:1.88},{q:'Q2 22',v:1.52}],
+    epsForecast:[{firm:'花旗',yr:'FY24E',eps:'7.2',rating:'hold'},{firm:'凱基',yr:'FY24E',eps:'7.6',rating:'buy'},{firm:'元大',yr:'FY24E',eps:'7.1',rating:'hold'}],
+    ratings:{buy:8,hold:7,sell:2},targetRange:'NT$175 ~ 210',consensus:'買進'},
+  '2454':{gross:'48.2%',op:'36.4%',net:'33.8%',roe:'22.1%',roa:'16.4%',debt:'28.7%',
+    epsQ:[{q:'Q1 24',v:18.4},{q:'Q4 23',v:15.2},{q:'Q3 23',v:13.8},{q:'Q2 23',v:12.1},{q:'Q1 23',v:11.4},{q:'Q4 22',v:10.8},{q:'Q3 22',v:14.2},{q:'Q2 22',v:13.6}],
+    epsForecast:[{firm:'瑞銀',yr:'FY24E',eps:'68.4',rating:'buy'},{firm:'摩根大通',yr:'FY24E',eps:'71.2',rating:'buy'},{firm:'富邦',yr:'FY24E',eps:'66.8',rating:'buy'}],
+    ratings:{buy:15,hold:3,sell:1},targetRange:'NT$1,200 ~ 1,500',consensus:'買進'},
+};
+const FIN_DEFAULT = {gross:'--',op:'--',net:'--',roe:'--',roa:'--',debt:'--',
+  epsQ:[{q:'Q1 24',v:0},{q:'Q4 23',v:0},{q:'Q3 23',v:0},{q:'Q2 23',v:0},{q:'Q1 23',v:0},{q:'Q4 22',v:0},{q:'Q3 22',v:0},{q:'Q2 22',v:0}],
+  epsForecast:[],ratings:{buy:0,hold:0,sell:0},targetRange:'--',consensus:'--'};
+
+const ANALYST_REPORTS = {
+  '2330':[
+    {firm:'Morgan Stanley',date:'04/15',rating:'buy',target:'NT$1,200',title:'AI 伺服器需求超預期，上調目標價至 1,200 元'},
+    {firm:'Goldman Sachs', date:'04/12',rating:'buy',target:'NT$1,180',title:'CoWoS 產能擴增加速，維持買進評等'},
+    {firm:'JP Morgan',     date:'04/10',rating:'buy',target:'NT$1,150',title:'2nm 製程進展順利，2025 年獲利可期'},
+    {firm:'花旗環球',      date:'04/08',rating:'buy',target:'NT$1,100',title:'下半年指引優於預期，客戶庫存健康'},
+    {firm:'美林美銀',      date:'04/05',rating:'hold',target:'NT$980', title:'短期評價偏高，等待回調布局機會'},
+  ],
+  '2454':[
+    {firm:'瑞銀',    date:'04/14',rating:'buy', target:'NT$1,450',title:'天璣 9400 接單旺盛，AI 手機滲透率提升'},
+    {firm:'摩根大通',date:'04/11',rating:'buy', target:'NT$1,480',title:'PC/平板 SoC 佔有率持續提升'},
+    {firm:'富邦',    date:'04/09',rating:'buy', target:'NT$1,380',title:'維持買進，目標價 1,380 元'},
+  ],
+};
+const ANALYST_DEFAULT = [];
+
+let epsMode = 'quarter';
+
+
+function toggleInlineChart(id, btn) {
+  const chart = document.getElementById(id);
+  if (!chart) return;
+  const isOpen = chart.classList.toggle('open');
+  btn.classList.toggle('open', isOpen);
+  btn.textContent = isOpen ? '收合' : (btn.dataset.label || btn.textContent.replace('收合','') || '圖表');
+  // store original label
+  if (!btn.dataset.label) btn.dataset.label = btn.textContent.replace('收合','').trim();
+  btn.textContent = isOpen ? '收合' : btn.dataset.label;
+}
+
+function setEpsMode(mode, btn) {
+  epsMode = mode;
+  document.querySelectorAll('.eps-mode-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (window._currentEpsData) drawEpsChart(window._currentEpsData);
+}
+
+function drawEpsChart(epsQ) {
+  window._currentEpsData = epsQ;
+  const canvas = document.getElementById('epsChart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.parentElement.offsetWidth || 300;
+  const H = 120;
+  canvas.width = W * window.devicePixelRatio;
+  canvas.height = H * window.devicePixelRatio;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+  let data = [...epsQ].reverse(); // oldest first
+  if (epsMode === 'cumul') {
+    // running sum within each calendar year
+    let runSum = 0, lastYear = '';
+    data = data.map(d => {
+      const yr = d.q.slice(-2);
+      if (yr !== lastYear) { runSum = 0; lastYear = yr; }
+      runSum += d.v;
+      return {...d, v: parseFloat(runSum.toFixed(2))};
+    });
+  }
+
+  const vals = data.map(d => d.v);
+  const maxV = Math.max(...vals) * 1.15 || 1;
+  const minV = Math.min(0, ...vals);
+  const pad = {l:8, r:8, t:10, b:28};
+  const bw = (W - pad.l - pad.r) / data.length;
+  const barW = Math.max(bw * 0.55, 6);
+
+  ctx.clearRect(0, 0, W, H);
+
+  // baseline
+  ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border') || '#e0e4ec';
+  ctx.lineWidth = 1;
+  const yZero = pad.t + (H - pad.t - pad.b) * (maxV / (maxV - minV));
+  ctx.beginPath(); ctx.moveTo(pad.l, yZero); ctx.lineTo(W - pad.r, yZero); ctx.stroke();
+
+  data.forEach((d, i) => {
+    const x = pad.l + i * bw + (bw - barW) / 2;
+    const barH = Math.abs(d.v) / (maxV - minV) * (H - pad.t - pad.b);
+    const y = d.v >= 0 ? yZero - barH : yZero;
+    // forecast bars (last 3 if epsForecast in mode)
+    const isActual = i < data.length;
+    ctx.fillStyle = d.v >= 0 ? 'rgba(212,43,43,0.72)' : 'rgba(26,158,92,0.72)';
+    ctx.beginPath();
+    const r = 2;
+    ctx.roundRect ? ctx.roundRect(x, y, barW, barH, [r,r,0,0]) : ctx.rect(x, y, barW, barH);
+    ctx.fill();
+
+    // label
+    ctx.fillStyle = '#8a909c';
+    ctx.font = '9px IBM Plex Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(d.q, x + barW/2, H - 6);
+
+    // value on bar
+    if (barH > 14) {
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 9px IBM Plex Mono, monospace';
+      ctx.fillText(d.v.toFixed(1), x + barW/2, d.v >= 0 ? y + 10 : y + barH - 4);
+    }
+  });
+
+  // eps table
+  const table = document.getElementById('epsTable');
+  if (table) {
+    table.innerHTML = data.map(d => `
+      <div style="background:var(--bg3);border-radius:4px;padding:4px 2px">
+        <div style="font-size:9px;color:var(--text3);font-family:var(--mono)">${d.q}</div>
+        <div style="font-family:var(--mono);font-size:11px;font-weight:500;color:${d.v>=0?'var(--up)':'var(--down)'}">${d.v.toFixed(2)}</div>
+      </div>`).join('');
+  }
+}
+
+function renderEpsForecast(forecasts) {
+  const el = document.getElementById('epsForecast');
+  if (!el) return;
+  if (!forecasts.length) { el.innerHTML = '<div style="font-size:11px;color:var(--text3);grid-column:span 3">此股票暫無法人預測資料</div>'; return; }
+  el.innerHTML = forecasts.map(f => `
+    <div style="background:var(--bg2);border-radius:6px;padding:7px 8px;border:1px solid rgba(26,95,212,.1)">
+      <div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-bottom:2px">${f.firm} ${f.yr}</div>
+      <div style="font-family:var(--mono);font-size:14px;font-weight:500;color:var(--up)">${f.eps}</div>
+      <div class="a-rating ${f.rating}" style="display:inline-block;margin-top:3px">${f.rating==='buy'?'買進':f.rating==='hold'?'中立':'賣出'}</div>
+    </div>`).join('');
+}
+
+function renderAnalystPanel(code) {
+  const fin = FIN[code] || FIN_DEFAULT;
+  const reports = ANALYST_REPORTS[code] || ANALYST_DEFAULT;
+  document.getElementById('analystCode').textContent = code;
+  document.getElementById('targetRange').textContent = fin.targetRange;
+  const cr = document.getElementById('consensusRating');
+  cr.textContent = fin.consensus;
+  cr.style.color = fin.ratings.buy > fin.ratings.sell + fin.ratings.hold ? 'var(--up)' : fin.ratings.sell > fin.ratings.buy ? 'var(--down)' : 'var(--flat)';
+  // bar
+  const total = fin.ratings.buy + fin.ratings.hold + fin.ratings.sell || 1;
+  document.getElementById('ratingBar').innerHTML = [
+    {pct: fin.ratings.buy/total*100, color:'var(--up)'},
+    {pct: fin.ratings.hold/total*100, color:'var(--flat)'},
+    {pct: fin.ratings.sell/total*100, color:'var(--down)'},
+  ].map(b => `<div style="flex:${b.pct};background:${b.color};min-width:${b.pct>0?2:0}px"></div>`).join('');
+  document.getElementById('ratingLegend').innerHTML = `
+    <span style="color:var(--up)">買進 ${fin.ratings.buy}</span>
+    <span style="color:var(--flat)">中立 ${fin.ratings.hold}</span>
+    <span style="color:var(--down)">賣出 ${fin.ratings.sell}</span>`;
+  // 同步更新手機版
+  const mCode = document.getElementById('mAnalystCode');
+  const mTarget = document.getElementById('mTargetRange');
+  const mRating = document.getElementById('mConsensusRating');
+  const mBar = document.getElementById('mRatingBar');
+  const mLegend = document.getElementById('mRatingLegend');
+  const mReports = document.getElementById('mAnalystReports');
+  if (mCode) mCode.textContent = code;
+  if (mTarget) mTarget.textContent = fin.targetRange;
+  if (mRating) { mRating.textContent = fin.consensus; mRating.style.color = fin.ratings.buy > fin.ratings.sell + fin.ratings.hold ? 'var(--up)' : fin.ratings.sell > fin.ratings.buy ? 'var(--down)' : 'var(--flat)'; }
+  if (mBar) mBar.innerHTML = [{pct:fin.ratings.buy/total*100,color:'var(--up)'},{pct:fin.ratings.hold/total*100,color:'var(--flat)'},{pct:fin.ratings.sell/total*100,color:'var(--down)'}].map(b=>`<div style="flex:${b.pct};background:${b.color};min-width:${b.pct>0?2:0}px"></div>`).join('');
+  if (mLegend) mLegend.innerHTML = `<span style="color:var(--up)">買進 ${fin.ratings.buy}</span><span style="color:var(--flat)">中立 ${fin.ratings.hold}</span><span style="color:var(--down)">賣出 ${fin.ratings.sell}</span>`;
+  if (mReports && reports.length) mReports.innerHTML = reports.slice(0,3).map(r=>`<div class="analyst-item"><div class="a-meta"><span class="a-firm">${r.firm}</span><span class="a-date">${r.date}</span></div><div class="a-row"><span class="a-rating ${r.rating}">${r.rating==='buy'?'買進':r.rating==='hold'?'中立':'賣出'}</span><span class="a-target">目標價 ${r.target}</span></div><div class="a-title">${r.title}</div></div>`).join('');
+  // reports
+  const rEl = document.getElementById('analystReports');
+  if (!reports.length) { rEl.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:var(--text3)">暫無最新報告摘要（Phase 2 接入 Yahoo Finance）</div>'; return; }
+  rEl.innerHTML = reports.map(r => `
+    <div class="analyst-item">
+      <div class="a-meta">
+        <span class="a-firm">${r.firm}</span>
+        <span class="a-date">${r.date}</span>
+      </div>
+      <div class="a-row">
+        <span class="a-rating ${r.rating}">${r.rating==='buy'?'買進':r.rating==='hold'?'中立':'賣出'}</span>
+        <span class="a-target">目標價 ${r.target}</span>
+      </div>
+      <div class="a-title">${r.title}</div>
+    </div>`).join('');
+}
+
+function renderFinTab(code) {
+  const fin = FIN[code] || FIN_DEFAULT;
+  document.getElementById('fGross').textContent = fin.gross;
+  document.getElementById('fOp').textContent    = fin.op;
+  document.getElementById('fNet').textContent   = fin.net;
+  document.getElementById('fROE').textContent   = fin.roe;
+  document.getElementById('fROA').textContent   = fin.roa;
+  document.getElementById('fDebt').textContent  = fin.debt;
+  renderEpsForecast(fin.epsForecast);
+  setTimeout(() => drawEpsChart(fin.epsQ), 50);
+}
+
+
+// ════ TDCC MULTI-WEEK DATA ════
+const TDCC_DATA = {
+  0:  { label:'2024/04/15', delta_label:'週變化',
+        rows:[
+          {range:'1~5 張',   persons:125840,pct:2.1, delta:+0.1},
+          {range:'6~10',     persons:38420, pct:1.8, delta:-0.1},
+          {range:'11~15',    persons:18600, pct:1.5, delta:0},
+          {range:'16~20',    persons:12400, pct:1.2, delta:0},
+          {range:'21~30',    persons:15800, pct:2.2, delta:+0.2},
+          {range:'31~50',    persons:18200, pct:3.8, delta:+0.3},
+          {range:'51~100',   persons:16400, pct:5.8, delta:+0.4},
+          {range:'101~200',  persons:8200,  pct:5.2, delta:-0.2},
+          {range:'201~400',  persons:4600,  pct:6.2, delta:+0.1},
+          {range:'401~600',  persons:2100,  pct:5.8, delta:+0.8},
+          {range:'601~800',  persons:1240,  pct:4.6, delta:+0.2},
+          {range:'801~1000', persons:840,   pct:3.8, delta:-0.1},
+          {range:'1001+ 張', persons:2840,  pct:56.0,delta:-1.7},
+        ]},
+  1:  { label:'2024/04/08', delta_label:'週變化',
+        rows:[
+          {range:'1~5 張',   persons:125600,pct:2.0, delta:-0.1},
+          {range:'6~10',     persons:38520, pct:1.9, delta:0},
+          {range:'11~15',    persons:18550, pct:1.5, delta:+0.1},
+          {range:'16~20',    persons:12380, pct:1.2, delta:0},
+          {range:'21~30',    persons:15640, pct:2.0, delta:-0.1},
+          {range:'31~50',    persons:18000, pct:3.5, delta:-0.2},
+          {range:'51~100',   persons:16100, pct:5.4, delta:-0.1},
+          {range:'101~200',  persons:8300,  pct:5.4, delta:+0.1},
+          {range:'201~400',  persons:4580,  pct:6.1, delta:0},
+          {range:'401~600',  persons:2050,  pct:5.0, delta:-0.4},
+          {range:'601~800',  persons:1220,  pct:4.4, delta:0},
+          {range:'801~1000', persons:845,   pct:3.9, delta:+0.1},
+          {range:'1001+ 張', persons:2860,  pct:57.7,delta:+0.6},
+        ]},
+  4:  { label:'2024/03/18', delta_label:'4週變化',
+        rows:[
+          {range:'1~5 張',   persons:124800,pct:1.9, delta:-0.2},
+          {range:'6~10',     persons:37900, pct:1.8, delta:0},
+          {range:'11~15',    persons:18400, pct:1.4, delta:-0.1},
+          {range:'16~20',    persons:12200, pct:1.1, delta:-0.1},
+          {range:'21~30',    persons:15200, pct:1.9, delta:-0.3},
+          {range:'31~50',    persons:17600, pct:3.3, delta:-0.5},
+          {range:'51~100',   persons:15800, pct:5.2, delta:-0.6},
+          {range:'101~200',  persons:8100,  pct:5.1, delta:-0.1},
+          {range:'201~400',  persons:4500,  pct:6.0, delta:-0.2},
+          {range:'401~600',  persons:1980,  pct:4.6, delta:-1.2},
+          {range:'601~800',  persons:1200,  pct:4.3, delta:-0.3},
+          {range:'801~1000', persons:830,   pct:3.8, delta:0},
+          {range:'1001+ 張', persons:2900,  pct:59.4,delta:+3.4},
+        ]},
+  12: { label:'2024/01/22', delta_label:'12週變化',
+        rows:[
+          {range:'1~5 張',   persons:123500,pct:1.8, delta:-0.3},
+          {range:'6~10',     persons:37200, pct:1.7, delta:-0.1},
+          {range:'11~15',    persons:18000, pct:1.3, delta:-0.2},
+          {range:'16~20',    persons:12000, pct:1.0, delta:-0.2},
+          {range:'21~30',    persons:14800, pct:1.8, delta:-0.4},
+          {range:'31~50',    persons:17000, pct:3.1, delta:-0.7},
+          {range:'51~100',   persons:15200, pct:4.9, delta:-0.9},
+          {range:'101~200',  persons:7900,  pct:4.8, delta:-0.4},
+          {range:'201~400',  persons:4350,  pct:5.8, delta:-0.4},
+          {range:'401~600',  persons:1850,  pct:4.2, delta:-1.6},
+          {range:'601~800',  persons:1150,  pct:4.1, delta:-0.5},
+          {range:'801~1000', persons:810,   pct:3.7, delta:-0.1},
+          {range:'1001+ 張', persons:2950,  pct:61.8,delta:+5.8},
+        ]},
+};
+
+function setTdccWeek(w, btn) {
+  document.querySelectorAll('.tdcc-wk-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const d = TDCC_DATA[w];
+  if (!d) return;
+  document.getElementById('tdccDateLabel').textContent = '統計週：' + d.label;
+  document.getElementById('tdccDeltaHd').textContent = d.delta_label;
+  const tbody = document.getElementById('tdccBody');
+  const maxPct = Math.max(...d.rows.map(r => r.pct));
+  tbody.innerHTML = d.rows.map(r => `
+    <tr>
+      <td>${r.range}</td>
+      <td>${r.persons.toLocaleString()}</td>
+      <td>${r.pct}%</td>
+      <td class="${r.delta>0?'up':r.delta<0?'down':'flat'}">${r.delta>0?'+':''}${r.delta.toFixed(1)}%</td>
+      <td class="tdcc-bar-cell"><div class="tdcc-bar" style="width:${Math.round(r.pct/maxPct*100)}%"></div></td>
+    </tr>`).join('');
+}
+
+// ════ EXTENDED CHIP DATA ════
+const CHIP_EXT = {
+  '2330':{ f0:'+8,420', f1:'+3,210', f5:'+24,850', fStreak:'連買 5 日', fStreakCls:'streak-buy', fHold:'持股 73.2%（上限無）',
+           t0:'+1,250', t1:'+840',   t5:'+5,320',  tStreak:'連買 3 日', tStreakCls:'streak-buy',
+           d0:'-320',   d1:'+180',   d5:'-1,240',  dStreak:'連賣 2 日', dStreakCls:'streak-sell' },
+  '2317':{ f0:'-2,140', f1:'-1,820',f5:'-8,400',  fStreak:'連賣 2 日', fStreakCls:'streak-sell',fHold:'持股 42.1%（上限 49%）',
+           t0:'+0',     t1:'+0',    t5:'+120',     tStreak:'持平',      tStreakCls:'',
+           d0:'+240',   d1:'-80',   d5:'+640',     dStreak:'持平',      dStreakCls:'' },
+  '2454':{ f0:'+4,820', f1:'+3,640',f5:'+18,200', fStreak:'連買 4 日', fStreakCls:'streak-buy', fHold:'持股 68.4%（上限無）',
+           t0:'+1,680', t1:'+1,240',t5:'+6,800',  tStreak:'連買 4 日', tStreakCls:'streak-buy',
+           d0:'+320',   d1:'-140',  d5:'+980',     dStreak:'持平',      dStreakCls:'' },
+};
+// ETF 類股不顯示三大法人（直接給預設）
+const ETF_CODES = ['EWJ','EWY','SPY','EWQ','EWG','EEM'];
+const CHIP_DEFAULT = { f0:'--',f1:'--',f5:'--',fStreak:'--',fStreakCls:'',fHold:'持股 --',
+                       t0:'--',t1:'--',t5:'--',tStreak:'--',tStreakCls:'',
+                       d0:'--',d1:'--',d5:'--',dStreak:'--',dStreakCls:'' };
+
+function renderChipTab(s) {
+  // ETF 類股不適用三大法人資料，顯示提示
+  if (ETF_CODES.includes(s.code || activeCode)) {
+    const chipSec = document.querySelector('#dp-chip .chip-section');
+    if (chipSec) {
+      const notice = chipSec.querySelector('.etf-notice');
+      if (!notice) {
+        const div = document.createElement('div');
+        div.className = 'etf-notice';
+        div.style.cssText = 'padding:10px;background:var(--bg3);border-radius:6px;font-size:12px;color:var(--text3);margin-bottom:8px';
+        div.textContent = '此為國際 ETF，不適用台灣三大法人資料。籌碼資訊請參考各 ETF 持倉報告。';
+        chipSec.prepend(div);
+      }
+    }
+  }
+  const c = CHIP_EXT[s.code || activeCode] || CHIP_DEFAULT;
+  const set = (id, val, isUp) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = val;
+    if (isUp !== undefined) el.className = 'chip-val3 ' + (isUp === true ? 'up' : isUp === false ? 'down' : '');
+  };
+  set('cF0', c.f0, c.f0.startsWith('+') && c.f0 !== '+0');
+  set('cF1', c.f1); document.getElementById('cF1').style.color = 'var(--text3)';
+  set('cF5', c.f5, c.f5.startsWith('+') && c.f5 !== '+0');
+  const fs = document.getElementById('cForeignStreak');
+  if (fs) { fs.textContent = c.fStreak; fs.className = 'chip-streak ' + c.fStreakCls; }
+  const fh = document.getElementById('cForeignHold');
+  if (fh) fh.textContent = c.fHold;
+
+  set('cT0', c.t0, c.t0.startsWith('+') && c.t0 !== '+0');
+  set('cT1', c.t1); if(document.getElementById('cT1')) document.getElementById('cT1').style.color = 'var(--text3)';
+  set('cT5', c.t5, c.t5.startsWith('+') && c.t5 !== '+0');
+  const ts = document.getElementById('cTrustStreak');
+  if (ts) { ts.textContent = c.tStreak; ts.className = 'chip-streak ' + c.tStreakCls; }
+
+  set('cD0', c.d0, !(c.d0.startsWith('-')) && c.d0 !== '--');
+  if(document.getElementById('cD1')) document.getElementById('cD1').style.color = 'var(--text3)';
+  set('cD5', c.d5, !(c.d5.startsWith('-')) && c.d5 !== '--');
+  const ds = document.getElementById('cDealerStreak');
+  if (ds) { ds.textContent = c.dStreak; ds.className = 'chip-streak ' + c.dStreakCls; }
+
+  // 土洋訊號
+  const sr = document.getElementById('signalRow');
+  if (sr) {
+    if (s.both && s.fi > 0) {
+      sr.className = 'signal-row both-buy';
+      sr.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg> 外資 + 投信 同步買超，土洋同買訊號成立';
+    } else if (s.both && s.fi < 0) {
+      sr.className = 'signal-row both-sell';
+      sr.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg> 外資 + 投信 同步賣超，土洋同賣訊號成立';
+    } else {
+      sr.className = 'signal-row neutral';
+      sr.innerHTML = '土洋尚未形成同向訊號';
+    }
+  }
+}
+
+// ════ INIT ════
+applyLayout();renderWatch();buildMobWatch();buildMobNews();buildMobMops();
+selectStock('2330');renderMobChart('2330',S['2330']);
+window.addEventListener('resize',applyLayout);
+document.getElementById('searchInput').addEventListener('input',e=>renderWatch(e.target.value));
+</script>
+
+  <!-- ═══ FIREBASE ═══ -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged }
+      from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc }
+      from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyChiPvntFjfO4zW_gJb6_A--_JF_LYyYow",
+      authDomain: "stock-dashboard-ef749.firebaseapp.com",
+      projectId: "stock-dashboard-ef749",
+      storageBucket: "stock-dashboard-ef749.firebasestorage.app",
+      messagingSenderId: "496899665009",
+      appId: "1:496899665009:web:a4729c61bb89b65efebfd0"
+    };
+
+    const app  = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db   = getFirestore(app);
+    const provider = new GoogleAuthProvider();
+
+    // ── 登入/登出 ──
+    // 統一用 popup，手機上 popup 被擋才改用 redirect
+    window.googleLogin = async () => {
+      if (typeof dbg === 'function') dbg('開始登入...');
+      try {
+        await signInWithPopup(auth, provider);
+        if (typeof dbg === 'function') dbg('popup 登入成功');
+      } catch(e) {
+        if (typeof dbg === 'function') dbg('popup 失敗:' + e.code + ' 改用redirect');
+        if (e.code === 'auth/popup-blocked' || e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') {
+          try {
+            await signInWithRedirect(auth, provider);
+          } catch(e2) {
+            alert('登入失敗：' + e2.message);
+          }
+        } else if (e.code !== 'auth/popup-closed-by-user') {
+          alert('登入失敗：' + e.message + ' (' + e.code + ')');
+        }
+      }
+    };
+    window.googleLogout = () => signOut(auth);
+
+    // ── 處理 redirect 登入結果（手機跳轉後回來）──
+    try {
+      const result = await getRedirectResult(auth);
+      if (result && result.user) {
+        if (typeof dbg === 'function') dbg('redirect成功:' + result.user.email);
+      } else {
+        if (typeof dbg === 'function') dbg('redirect result: null（正常，非redirect登入）');
+      }
+    } catch(e) {
+      if (typeof dbg === 'function') dbg('redirect錯誤:' + e.code + ' ' + e.message);
+      console.log('[auth] redirect result error:', e.message);
+    }
+
+    // ── 監聽登入狀態 ──
+    onAuthStateChanged(auth, async user => {
+      if (typeof dbg === 'function') dbg('auth: user=' + (user ? user.email : 'null') + ' w=' + window.innerWidth);
+      const loginBtn  = document.getElementById('loginBtn');
+      const userInfo  = document.getElementById('userInfo');
+      const loginWall = document.getElementById('loginWall');
+      const appBody   = document.getElementById('desktopBody');
+      const mobBody   = document.getElementById('mobBody');
+      const mobNav    = document.getElementById('mobNav');
+
+      if (user) {
+        // 已登入
+        if (loginWall) loginWall.style.display = 'none';
+        window._loggedIn = true;
+        document.body.classList.add('logged-in');
+        sessionStorage.setItem('dash_logged_in', '1');
+        if (typeof dbg === 'function') dbg('登入成功 user=' + user.email + ' w=' + window.innerWidth);
+        // 手機直式：直接強制顯示
+        const _mb = document.getElementById('mobBody');
+        const _mn = document.getElementById('mobNav');
+        if (window.innerWidth <= 600) {
+          if (_mb) { _mb.style.display = 'block'; if (typeof dbg === 'function') dbg('mobBody set block'); }
+          if (_mn) { _mn.style.display = 'block'; if (typeof dbg === 'function') dbg('mobNav set block'); }
+        }
+        if (typeof dbg === 'function') dbg('mobBody now=' + (_mb ? _mb.style.display : 'null'));
+        setTimeout(() => {
+          if (typeof dbg === 'function') dbg('setTimeout fired, calling applyLayout');
+          applyLayout();
+          if (typeof dbg === 'function') dbg('applyLayout done, ms-watch=' + (document.getElementById('ms-watch') ? 'exists' : 'NULL'));
+          try { buildMobWatch(); if (typeof dbg === 'function') dbg('buildMobWatch OK'); } catch(e) { if (typeof dbg === 'function') dbg('buildMobWatch ERR:'+e.message); }
+          try { buildMobNews();  if (typeof dbg === 'function') dbg('buildMobNews OK');  } catch(e) { if (typeof dbg === 'function') dbg('buildMobNews ERR:'+e.message);  }
+          try { buildMobMops();  if (typeof dbg === 'function') dbg('buildMobMops OK');  } catch(e) { if (typeof dbg === 'function') dbg('buildMobMops ERR:'+e.message);  }
+          try { selectStock('2330'); if (typeof dbg === 'function') dbg('selectStock OK'); } catch(e) { if (typeof dbg === 'function') dbg('selectStock ERR:'+e.message); }
+          try { renderMobChart('2330', S['2330']); if (typeof dbg === 'function') dbg('renderMobChart OK'); } catch(e) { if (typeof dbg === 'function') dbg('renderMobChart ERR:'+e.message); }
+          const _msw = document.getElementById('ms-watch');
+          const _mswClass = _msw ? _msw.className : 'null';
+          const _mswDisplay = _msw ? window.getComputedStyle(_msw).display : 'null';
+          const _mbDisplay = window.getComputedStyle(document.getElementById('mobBody')).display;
+          const _mbHeight = document.getElementById('mobBody').offsetHeight;
+          if (typeof dbg === 'function') dbg('ms-watch class=' + _mswClass + ' computed=' + _mswDisplay);
+          if (typeof dbg === 'function') dbg('mobBody computed=' + _mbDisplay + ' height=' + _mbHeight + 'px');
+          if (typeof dbg === 'function') dbg('all build done, innerHTML len=' + (_msw ? _msw.innerHTML.length : 0));
+        }, 200);
+        if (loginBtn)  loginBtn.style.display = 'none';
+        if (userInfo) {
+          userInfo.style.display = 'flex';
+          document.getElementById('userAvatar').src  = user.photoURL || '';
+          document.getElementById('userName').textContent = user.displayName || user.email;
+        }
+        // 讀取使用者的自選股設定
+        await loadUserWatchlist(user.uid);
+      } else {
+        // 未登入，顯示登入牆
+        window._loggedIn = false;
+        document.body.classList.remove('logged-in');
+        sessionStorage.removeItem('dash_logged_in');
+        if (loginWall) loginWall.style.display = 'flex';
+        if (appBody)   appBody.style.display = 'none';
+        if (mobBody)   mobBody.style.display  = 'none';
+        if (mobNav)    mobNav.style.display   = 'none';
+        if (loginBtn)  loginBtn.style.display = 'flex';
+        if (userInfo)  userInfo.style.display = 'none';
+      }
+    });
+
+    // ── 讀取自選股 ──
+    async function loadUserWatchlist(uid) {
+      try {
+        const ref  = doc(db, 'users', uid);
+        const snap = await getDoc(ref);
+        if (snap.exists() && snap.data().watchlist) {
+          window._userWatchlist = snap.data().watchlist;
+          console.log('自選股已載入', window._userWatchlist);
+        }
+      } catch(e) { console.log('載入自選股失敗', e); }
+    }
+
+    // ── 儲存自選股 ──
+    window.saveUserWatchlist = async (data) => {
+      const user = auth.currentUser;
+      if (!user) return;
+      try {
+        await setDoc(doc(db, 'users', user.uid), { watchlist: data }, { merge: true });
+        console.log('自選股已儲存');
+      } catch(e) { console.log('儲存失敗', e); }
+    };
+  </script>
+
+
+  <!-- ═══ 真實資料 API ═══ -->
+  <script>
+    const API = 'https://stock-dashboard-backend-qtdi.onrender.com';
+
+    // ── 抓指數資料，更新頂部 ticker ──
+    async function fetchIndices() {
+      try {
+        const r = await fetch(API + '/api/indices');
+        const j = await r.json();
+        const data = j.data || {};
+        const MAP = {
+          'TAIFEX':'台指期夜盤','TAIEX':'台灣加權','OTC':'櫃買指數',
+          'DJI':'道　　瓊','SPX':'S&P 500','IXIC':'NASDAQ',
+          'N225':'日經 225','KS11':'韓 KOSPI','HSI':'恒　　生',
+          'GOLD':'黃金現貨','OIL':'原油 WTI','TWDFX':'USD/TWD',
+        };
+        const items = document.querySelectorAll('.tk-item');
+        let i = 0;
+        for (const [key, label] of Object.entries(MAP)) {
+          if (!data[key] || !items[i]) { i++; continue; }
+          const d = data[key];
+          const priceEl = items[i].querySelector('.tk-price');
+          const chgEl   = items[i].querySelector('.tk-chg');
+          if (priceEl) priceEl.textContent = d.price.toLocaleString();
+          if (chgEl) {
+            const sign = d.pct >= 0 ? '+' : '';
+            chgEl.textContent = sign + d.pct.toFixed(2) + '%';
+            chgEl.className = 'tk-chg ' + (d.pct > 0 ? 'up' : d.pct < 0 ? 'down' : 'flat');
+          }
+          i++;
+        }
+        console.log('[API] indices updated');
+      } catch(e) { console.log('[API] indices error:', e); }
+    }
+
+    // ── 抓股票資料，更新自選股 ──
+    async function fetchStocks() {
+      try {
+        const r = await fetch(API + '/api/stocks');
+        const j = await r.json();
+        const data = j.data || {};
+        // 更新全域 S 物件
+        for (const [code, d] of Object.entries(data)) {
+          if (window.S && window.S[code]) {
+            window.S[code].price = d.price;
+            window.S[code].chg   = d.chg;
+            window.S[code].pct   = d.pct;
+            window.S[code].open  = d.open;
+            window.S[code].high  = d.high;
+            window.S[code].low   = d.low;
+            window.S[code].close = d.close;
+            window.S[code].vol   = d.vol ? Math.round(d.vol/1000) + '張' : '--';
+          }
+        }
+        // 重新渲染自選股列表
+        if (window.renderWatch) renderWatch();
+        // 如果有選中的股票，重新更新中間顯示
+        if (window.activeCode && window.selectStock) selectStock(window.activeCode);
+        console.log('[API] stocks updated:', Object.keys(data).length);
+      } catch(e) { console.log('[API] stocks error:', e); }
+    }
+
+    // ── 抓新聞 ──
+    async function fetchNews() {
+      try {
+        const r = await fetch(API + '/api/news');
+        const j = await r.json();
+        if (j.tw && j.tw.length) {
+          const renderN = (items, id) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.innerHTML = items.map(n => `
+              <div class="nitem" onclick="window.open('${n.link||'#'}','_blank')">
+                <div class="n-meta">
+                  <span class="n-src">${n.src}</span>
+                  <span class="n-time">${n.time||n.updated?.slice(11,16)||''}</span>
+                </div>
+                <div class="n-title">${n.title}</div>
+              </div>`).join('');
+          };
+          renderN(j.tw,   'news-tw');
+          renderN(j.intl, 'news-intl');
+          // 手機版
+          renderN(j.tw,   'mn-tw');
+          renderN(j.intl, 'mn-intl');
+          console.log('[API] news updated');
+        }
+      } catch(e) { console.log('[API] news error:', e); }
+    }
+
+    // ── 啟動：等 Firebase 登入後才抓資料 ──
+    function startRealData() {
+      // 重建手機版各頁面
+      if (typeof buildMobWatch === 'function') buildMobWatch();
+      if (typeof buildMobNews  === 'function') buildMobNews();
+      if (typeof buildMobMops  === 'function') buildMobMops();
+      if (typeof renderMobChart === 'function' && window.activeCode) {
+        renderMobChart(window.activeCode, window.S[window.activeCode]);
+      }
+      fetchIndices();
+      fetchStocks();
+      fetchNews();
+      // 每 5 分鐘更新一次
+      setInterval(fetchIndices, 5 * 60 * 1000);
+      setInterval(fetchStocks,  5 * 60 * 1000);
+      setInterval(fetchNews,   15 * 60 * 1000);
+    }
+
+    // 監聽登入成功後啟動
+    document.addEventListener('DOMContentLoaded', () => {
+      // 登入牆消失後（代表已登入）開始抓資料
+      const observer = new MutationObserver(() => {
+        const wall = document.getElementById('loginWall');
+        if (wall && wall.style.display === 'none') {
+          startRealData();
+          observer.disconnect();
+        }
+      });
+      const wall = document.getElementById('loginWall');
+      if (wall) observer.observe(wall, { attributes: true, attributeFilter: ['style'] });
+    });
+  </script>
+
+
+<!-- 除錯面板（手機測試用，之後移除） -->
+<style>
+/* 除錯用：讓 mob-body 有紅色背景，確認它是否顯示 */
+#mobBody { background: rgba(255,0,0,0.05) !important; min-height: 100px; }
+#ms-watch.active { background: rgba(0,255,0,0.05) !important; min-height: 200px; }
+</style>
+<div id="debugPanel" style="position:fixed;top:0;left:0;right:0;background:rgba(0,0,0,0.9);color:#0f0;font-family:monospace;font-size:11px;padding:8px;z-index:99999;max-height:200px;overflow-y:auto;display:block">
+  <div id="debugLog">loading...</div>
+</div>
+<script>
+function dbg(msg) {
+  const el = document.getElementById('debugLog');
+  if (el) el.innerHTML = new Date().toLocaleTimeString() + ' ' + msg + '<br>' + el.innerHTML;
+  console.log('[DBG]', msg);
+}
+dbg('頁面載入 w=' + window.innerWidth + ' h=' + window.innerHeight);
+document.addEventListener('DOMContentLoaded', () => {
+  dbg('DOMContentLoaded w=' + window.innerWidth);
+  const mb = document.getElementById('mobBody');
+  const lw = document.getElementById('loginWall');
+  dbg('mobBody=' + (mb ? mb.style.display || 'no-style' : 'null'));
+  dbg('loginWall=' + (lw ? lw.style.display : 'null'));
+  dbg('body.class=' + document.body.className);
+});
+window.addEventListener('load', () => {
+  dbg('window.load w=' + window.innerWidth);
+});
+</script>
+
+</body>
+</html>

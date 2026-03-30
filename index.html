@@ -1,0 +1,1388 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>我的股票儀表板</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:     #f4f6fa;
+  --bg2:    #ffffff;
+  --bg3:    #f0f2f7;
+  --text:   #1a1d24;
+  --text2:  #464e62;
+  --text3:  #8a909c;
+  --border: #e0e4ec;
+  --up:     #d42b2b;
+  --down:   #1a9e5c;
+  --flat:   #8a909c;
+  --accent: #1a5fd4;
+  --purple: #6d3cc9;
+  --up-bg:  #fef2f2;
+  --down-bg:#f0faf5;
+  --header-h: 56px;
+  --ticker-h: 40px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{font-size:14px;background:var(--bg)}
+body{font-family:'Noto Sans TC',sans-serif;color:var(--text);min-height:100vh;overflow-x:hidden}
+.mono{font-family:'IBM Plex Mono',monospace}
+
+/* ===================== HEADER ===================== */
+#header{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  height:var(--header-h);
+  background:var(--bg2);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:8px;
+  padding:0 12px;
+  box-shadow:0 2px 8px rgba(0,0,0,.06);
+}
+.logo{
+  font-family:'IBM Plex Mono',monospace;
+  font-weight:600;font-size:13px;color:var(--accent);
+  white-space:nowrap;flex-shrink:0;
+  letter-spacing:-.3px;
+}
+.market-badges{display:flex;gap:4px;flex-shrink:0}
+.badge{
+  font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px;
+  white-space:nowrap;line-height:1.4;
+}
+.badge.tw-open{background:#fef2f2;color:var(--up)}
+.badge.us-open{background:#f0faf5;color:var(--down)}
+.badge.closed{background:var(--bg3);color:var(--text3)}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
+#clock{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2);text-align:right;line-height:1.4;white-space:nowrap}
+.icon-btn{
+  width:32px;height:32px;border-radius:50%;border:none;
+  background:var(--bg3);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--text2);font-size:15px;position:relative;
+  transition:background .15s;flex-shrink:0;
+}
+.icon-btn:hover{background:var(--border)}
+.notif-dot{
+  position:absolute;top:4px;right:4px;
+  width:7px;height:7px;border-radius:50%;background:#e53e3e;
+  border:1.5px solid var(--bg2);
+}
+.avatar{
+  width:32px;height:32px;border-radius:50%;
+  background:var(--accent);color:#fff;
+  font-size:12px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;flex-shrink:0;border:2px solid var(--border);
+}
+.logout-btn{
+  font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);
+  background:var(--bg3);color:var(--text2);cursor:pointer;
+  white-space:nowrap;flex-shrink:0;transition:background .15s;
+}
+.logout-btn:hover{background:var(--border)}
+
+/* ===================== TICKER ===================== */
+#ticker-wrap{
+  position:fixed;top:var(--header-h);left:0;right:0;z-index:99;
+  height:var(--ticker-h);background:var(--bg2);
+  border-bottom:1px solid var(--border);
+  overflow:hidden;
+}
+.ticker-track{
+  display:flex;align-items:center;height:100%;
+  animation:ticker 60s linear infinite;
+  width:max-content;
+}
+.ticker-track:hover{animation-play-state:paused}
+@keyframes ticker{
+  0%{transform:translateX(0)}
+  100%{transform:translateX(-50%)}
+}
+.ticker-item{
+  display:flex;align-items:center;gap:6px;
+  padding:0 16px;border-right:1px solid var(--border);
+  white-space:nowrap;height:100%;cursor:default;
+}
+.ticker-item.night{background:#f5f0ff}
+.ticker-night-tag{
+  font-size:9px;font-weight:700;color:var(--purple);
+  background:#ede4ff;border-radius:3px;padding:1px 4px;
+}
+.ticker-name{font-size:11px;color:var(--text2)}
+.ticker-price{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:var(--text)}
+.ticker-chg{font-family:'IBM Plex Mono',monospace;font-size:11px}
+.up{color:var(--up)}.down{color:var(--down)}.flat{color:var(--flat)}
+
+/* ===================== LAYOUT ===================== */
+.main-wrap{
+  padding-top:calc(var(--header-h) + var(--ticker-h));
+  min-height:100vh;
+}
+/* Mobile: single column */
+.layout{display:flex;flex-direction:column}
+
+/* ===================== PANEL COMMON ===================== */
+.panel{background:var(--bg2);border-radius:12px;border:1px solid var(--border);overflow:hidden}
+.panel-hd{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;border-bottom:1px solid var(--border);
+  font-size:12px;font-weight:700;color:var(--text);
+}
+.panel-hd .right{display:flex;gap:6px;align-items:center}
+.small-btn{
+  font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--border);
+  background:var(--bg3);color:var(--text2);cursor:pointer;
+  transition:background .15s;white-space:nowrap;
+}
+.small-btn:hover{background:var(--border)}
+.small-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* ===================== LEFT: WATCHLIST ===================== */
+#left-col{padding:8px;display:flex;flex-direction:column;gap:8px}
+.search-wrap{
+  display:flex;align-items:center;gap:8px;
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:10px;padding:8px 12px;
+}
+.search-wrap input{
+  flex:1;border:none;background:transparent;font-size:13px;
+  color:var(--text);outline:none;font-family:'Noto Sans TC',sans-serif;
+}
+.search-wrap input::placeholder{color:var(--text3)}
+.search-icon{color:var(--text3);font-size:14px}
+
+.group-hd{
+  font-size:11px;font-weight:700;color:var(--text3);
+  padding:6px 4px 4px;letter-spacing:.5px;
+}
+.stock-row{
+  display:flex;align-items:center;
+  padding:8px 10px;border-radius:10px;
+  cursor:pointer;transition:background .12s;gap:8px;
+  border:1px solid transparent;
+}
+.stock-row:hover,.stock-row.active{background:var(--bg3);border-color:var(--border)}
+.stock-row.active{border-color:var(--accent);background:#eef3fd}
+.stock-left{flex:1;min-width:0}
+.stock-code{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:var(--text)}
+.stock-name{font-size:11px;color:var(--text3);margin-top:1px}
+.stock-tags{display:flex;gap:3px;margin-top:3px;flex-wrap:wrap}
+.tag{
+  font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;
+  font-family:'IBM Plex Mono',monospace;line-height:1.5;
+}
+.tag.ext-buy{background:#fef2f2;color:var(--up)}
+.tag.ext-sell{background:#f0faf5;color:var(--down)}
+.tag.inv-buy{background:#fff5f5;color:#e05252}
+.tag.inv-sell{background:#f0fdf5;color:#2d9c6b}
+.tag.same{background:#ebf4ff;color:var(--accent)}
+.tag.div{background:#fff7ed;color:#c05c0c}
+.tag.whale{background:#f5f0ff;color:var(--purple)}
+
+.mini-chart{flex-shrink:0}
+.mini-chart canvas{display:block}
+
+.stock-right{text-align:right;flex-shrink:0}
+.stock-price{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;color:var(--text)}
+.stock-pct{
+  font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;
+  padding:2px 5px;border-radius:4px;margin-top:2px;display:inline-block;
+}
+.stock-pct.up{background:var(--up-bg);color:var(--up)}
+.stock-pct.down{background:var(--down-bg);color:var(--down)}
+.stock-pct.flat{background:var(--bg3);color:var(--flat)}
+
+/* ===================== MIDDLE: CHART ===================== */
+#mid-col{padding:8px;display:flex;flex-direction:column;gap:8px}
+.stock-title-wrap{
+  background:var(--bg2);border-radius:12px;border:1px solid var(--border);
+  padding:12px 14px;
+}
+.stock-title-row{display:flex;justify-content:space-between;align-items:flex-start}
+.stock-title-code{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:700;color:var(--text)}
+.stock-title-name{font-size:13px;color:var(--text2);margin-top:2px}
+.stock-title-price{font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:700;text-align:right}
+.stock-title-chg{font-size:13px;font-family:'IBM Plex Mono',monospace;text-align:right;margin-top:2px}
+
+.tf-wrap{display:flex;gap:0;overflow-x:auto;padding-bottom:0;-ms-overflow-style:none;scrollbar-width:none}
+.tf-wrap::-webkit-scrollbar{display:none}
+.tf-group{display:flex;gap:0;background:var(--bg3);border-radius:8px;padding:2px;flex-shrink:0}
+.tf-group+.tf-group{margin-left:6px}
+.tf-btn{
+  font-size:11px;padding:4px 9px;border-radius:6px;border:none;
+  background:transparent;color:var(--text2);cursor:pointer;
+  font-family:'IBM Plex Mono',monospace;font-weight:500;
+  transition:background .12s,color .12s;white-space:nowrap;
+}
+.tf-btn.active,.tf-btn:hover{background:var(--bg2);color:var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+
+.kline-placeholder{
+  background:var(--bg3);border:2px dashed var(--border);border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  height:200px;color:var(--text3);font-size:12px;text-align:center;
+  line-height:1.6;
+}
+.ohlc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border-radius:8px;overflow:hidden}
+.ohlc-cell{background:var(--bg2);padding:10px 8px;text-align:center}
+.ohlc-label{font-size:10px;color:var(--text3);margin-bottom:3px}
+.ohlc-val{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600}
+
+/* ===================== TABS ===================== */
+.tab-bar{
+  display:flex;overflow-x:auto;border-bottom:2px solid var(--border);
+  -ms-overflow-style:none;scrollbar-width:none;background:var(--bg2);
+}
+.tab-bar::-webkit-scrollbar{display:none}
+.tab-btn{
+  font-size:12px;padding:10px 14px;border:none;background:transparent;
+  color:var(--text3);cursor:pointer;white-space:nowrap;flex-shrink:0;
+  border-bottom:2px solid transparent;margin-bottom:-2px;
+  transition:color .15s;
+}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:700}
+.tab-content{display:none;padding:12px}
+.tab-content.active{display:block}
+
+/* ===================== CHIP SECTION ===================== */
+.chip-table{width:100%;border-collapse:collapse;font-size:12px}
+.chip-table th{background:var(--bg3);color:var(--text3);padding:6px 8px;font-weight:700;font-size:10px;letter-spacing:.3px;border-bottom:1px solid var(--border)}
+.chip-table td{padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.chip-table tr:last-child td{border-bottom:none}
+.chip-name{font-weight:700;font-size:12px}
+.chip-sub{font-size:10px;color:var(--text3);margin-top:2px;display:flex;gap:4px;flex-wrap:wrap}
+.chip-num{font-family:'IBM Plex Mono',monospace;font-size:12px}
+.signal-box{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:44px;height:22px;border-radius:5px;font-size:11px;font-weight:700;
+  font-family:'IBM Plex Mono',monospace;
+}
+.signal-box.buy{background:var(--up-bg);color:var(--up)}
+.signal-box.sell{background:var(--down-bg);color:var(--down)}
+.signal-box.neut{background:var(--bg3);color:var(--text3)}
+
+.expand-btn{
+  width:28px;height:28px;border-radius:6px;border:1px solid var(--border);
+  background:var(--bg3);cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-size:13px;color:var(--text3);transition:background .15s;
+}
+.expand-btn:hover{background:var(--border)}
+
+/* distribution table */
+.dist-bar-bg{background:var(--bg3);border-radius:3px;height:6px;overflow:hidden}
+.dist-bar-fill{height:100%;border-radius:3px;background:var(--accent);transition:width .5s}
+
+/* EPS chart placeholder */
+.eps-bars{display:flex;align-items:flex-end;gap:4px;height:80px;margin:8px 0}
+.eps-bar{flex:1;border-radius:3px 3px 0 0;transition:opacity .2s;cursor:pointer}
+.eps-bar:hover{opacity:.8}
+.eps-nums{display:flex;gap:4px}
+.eps-num{flex:1;text-align:center;font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--text3)}
+
+/* fin grid */
+.fin-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fin-card{background:var(--bg3);border-radius:8px;padding:10px 12px}
+.fin-card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.fin-label{font-size:11px;color:var(--text2);font-weight:700}
+.fin-val{font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:700}
+.fin-unit{font-size:10px;color:var(--text3)}
+.help-icon{font-size:11px;color:var(--text3);cursor:pointer;border:none;background:none;padding:0}
+
+/* ===================== BASIC INFO ===================== */
+.info-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+.info-item{background:var(--bg3);border-radius:8px;padding:9px 11px}
+.info-item-label{font-size:10px;color:var(--text3);margin-bottom:3px}
+.info-item-val{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600}
+
+/* ===================== RIGHT: NEWS ===================== */
+#right-col{padding:8px;display:flex;flex-direction:column;gap:8px}
+
+/* analyst */
+.analyst-bar{height:8px;border-radius:4px;overflow:hidden;display:flex;margin:8px 0}
+.analyst-bar .buy-seg{background:#d42b2b}
+.analyst-bar .hold-seg{background:#f0a500}
+.analyst-bar .sell-seg{background:#1a9e5c}
+.consensus-row{display:flex;justify-content:space-between;margin-bottom:4px}
+.consensus-label{font-size:11px;color:var(--text3)}
+.consensus-val{font-size:11px;font-weight:700;font-family:'IBM Plex Mono',monospace}
+.rating-tag{font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px}
+.rating-tag.strong-buy{background:#fef2f2;color:var(--up)}
+.rating-tag.buy{background:#fff5f5;color:#e05252}
+.rating-tag.hold{background:#fff8e1;color:#c08000}
+.rating-tag.sell{background:#f0faf5;color:var(--down)}
+.analyst-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px}
+.analyst-row:last-child{border-bottom:none}
+.disclaimer{font-size:10px;color:var(--text3);padding:8px 0;border-top:1px solid var(--border);margin-top:4px}
+
+/* news */
+.news-row{
+  padding:9px 0;border-bottom:1px solid var(--border);cursor:pointer;
+  transition:background .12s;border-radius:4px;
+}
+.news-row:last-child{border-bottom:none}
+.news-meta{font-size:10px;color:var(--text3);margin-bottom:3px}
+.news-title{font-size:12px;color:var(--text);line-height:1.5}
+.news-row:hover .news-title{color:var(--accent)}
+
+/* mops */
+.mops-row{padding:8px 0;border-bottom:1px solid var(--border);font-size:12px}
+.mops-row:last-child{border-bottom:none}
+.mops-meta{font-size:10px;color:var(--text3);margin-bottom:2px;display:flex;gap:6px}
+.mops-title{color:var(--text);line-height:1.5;cursor:pointer}
+.mops-title:hover{color:var(--accent)}
+
+/* ===================== MODALS ===================== */
+.modal-overlay{
+  position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.45);
+  display:none;align-items:flex-end;justify-content:center;
+  backdrop-filter:blur(2px);
+}
+.modal-overlay.show{display:flex}
+.modal-box{
+  background:var(--bg2);border-radius:16px 16px 0 0;
+  width:100%;max-height:85vh;overflow-y:auto;
+  padding:16px;animation:slideUp .25s ease;
+}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.modal-title{font-size:15px;font-weight:700}
+.modal-close{font-size:20px;border:none;background:none;cursor:pointer;color:var(--text3);padding:0 4px}
+
+/* help panel */
+.help-item{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.help-item:last-child{border-bottom:none}
+.help-tag{flex-shrink:0;min-width:42px;text-align:center}
+.help-desc{font-size:12px;color:var(--text2);line-height:1.6}
+
+/* notif panel */
+.notif-item{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--border)}
+.notif-item:last-child{border-bottom:none}
+.notif-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.notif-content .notif-title{font-size:12px;font-weight:700}
+.notif-content .notif-time{font-size:10px;color:var(--text3);margin-top:2px}
+
+/* news modal */
+#news-modal .modal-box{border-radius:16px;max-height:90vh;margin:20px;width:calc(100% - 40px)}
+#news-modal .modal-overlay{align-items:center}
+.news-modal-meta{font-size:11px;color:var(--text3);margin-bottom:10px}
+.news-modal-body{font-size:13px;line-height:1.8;color:var(--text2)}
+
+/* ===================== TABLET & DESKTOP ===================== */
+@media(min-width:640px){
+  :root{--header-h:60px;--ticker-h:44px}
+  .logo{font-size:14px}
+  .main-wrap{padding-top:calc(var(--header-h) + var(--ticker-h))}
+  .kline-placeholder{height:260px}
+}
+@media(min-width:900px){
+  .layout{flex-direction:row;align-items:flex-start;gap:0}
+  #left-col{width:280px;flex-shrink:0;height:calc(100vh - var(--header-h) - var(--ticker-h));overflow-y:auto;position:sticky;top:calc(var(--header-h) + var(--ticker-h));padding:10px 8px}
+  #left-col::-webkit-scrollbar{width:4px}
+  #left-col::-webkit-scrollbar-track{background:transparent}
+  #left-col::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+  #mid-col{flex:1;min-width:0;padding:10px 8px}
+  #right-col{width:280px;flex-shrink:0;padding:10px 8px}
+  /* hide watchlist on mobile by default, show on desktop */
+  .kline-placeholder{height:300px}
+  .modal-overlay{align-items:center}
+  .modal-box{border-radius:16px;max-width:520px;max-height:80vh}
+}
+@media(min-width:1200px){
+  #left-col{width:300px}
+  #right-col{width:300px}
+}
+
+/* mobile nav bottom: only show chart view when stock selected */
+.mobile-nav{
+  position:fixed;bottom:0;left:0;right:0;z-index:98;
+  background:var(--bg2);border-top:1px solid var(--border);
+  display:flex;justify-content:around;padding:6px 0;padding-bottom:env(safe-area-inset-bottom,6px);
+}
+.mobile-nav-btn{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
+  border:none;background:none;cursor:pointer;padding:4px 0;
+  color:var(--text3);font-size:10px;transition:color .15s;
+}
+.mobile-nav-btn.active{color:var(--accent)}
+.mobile-nav-btn .icon{font-size:20px;line-height:1}
+@media(min-width:900px){.mobile-nav{display:none}}
+
+/* mobile views */
+.mobile-view{display:none}
+.mobile-view.active{display:block}
+@media(min-width:900px){
+  .mobile-view{display:block !important}
+  .mobile-nav{display:none}
+}
+
+/* ===================== MISC ===================== */
+.section-gap{height:8px}
+.text-center{text-align:center}
+.mt4{margin-top:4px}
+.placeholder-chart{
+  background:var(--bg3);border-radius:8px;height:100px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;color:var(--text3);border:1px dashed var(--border);
+}
+
+/* target price bar */
+.tp-bar-wrap{display:flex;align-items:center;gap:8px;margin:8px 0}
+.tp-bar-track{flex:1;height:8px;background:var(--bg3);border-radius:4px;position:relative;overflow:visible}
+.tp-bar-range{position:absolute;height:100%;background:linear-gradient(90deg,var(--down),var(--up));border-radius:4px}
+.tp-marker{position:absolute;top:-4px;width:2px;height:16px;border-radius:1px;background:var(--accent);transform:translateX(-50%)}
+.tp-label{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2);white-space:nowrap}
+
+/* scroll fix */
+.scroll-x{overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none}
+.scroll-x::-webkit-scrollbar{display:none}
+
+/* week switcher */
+.week-btns{display:flex;gap:4px;overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none}
+.week-btns::-webkit-scrollbar{display:none}
+.week-btn{flex-shrink:0}
+</style>
+</head>
+<body>
+
+<!-- ==================== HEADER ==================== -->
+<header id="header">
+  <div class="logo">📊 股票儀表板</div>
+  <div class="market-badges">
+    <span class="badge" id="badge-tw">台股休市</span>
+    <span class="badge" id="badge-us">美股休市</span>
+  </div>
+  <div class="header-right">
+    <div id="clock" class="mono">--:--<br>----/--/--</div>
+    <button class="icon-btn" onclick="openModal('help-modal')" title="訊號說明">❓</button>
+    <button class="icon-btn" onclick="openModal('notif-modal')" title="通知">
+      🔔<span class="notif-dot"></span>
+    </button>
+    <div class="avatar" title="用戶">王</div>
+    <button class="logout-btn">登出</button>
+  </div>
+</header>
+
+<!-- ==================== TICKER ==================== -->
+<div id="ticker-wrap">
+  <div class="ticker-track" id="ticker-track">
+    <!-- injected by JS -->
+  </div>
+</div>
+
+<!-- ==================== MAIN ==================== -->
+<div class="main-wrap">
+  <div class="layout">
+
+    <!-- LEFT: WATCHLIST -->
+    <div id="left-col" class="mobile-view" id="view-watchlist">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="search-input" placeholder="搜尋代號或名稱..." oninput="filterStocks()">
+      </div>
+      <div id="watchlist-area"></div>
+    </div>
+
+    <!-- MIDDLE: CHART + DATA -->
+    <div id="mid-col" class="mobile-view" id="view-chart">
+
+      <!-- stock title -->
+      <div class="stock-title-wrap">
+        <div class="stock-title-row">
+          <div>
+            <div class="stock-title-code mono" id="detail-code">2330</div>
+            <div class="stock-title-name" id="detail-name">台積電</div>
+          </div>
+          <div>
+            <div class="stock-title-price mono up" id="detail-price">980</div>
+            <div class="stock-title-chg mono up" id="detail-chg">+12 (+1.24%)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- timeframe -->
+      <div class="panel">
+        <div style="padding:8px 10px">
+          <div class="scroll-x">
+            <div style="display:flex;gap:6px;min-width:max-content">
+              <div class="tf-group">
+                <button class="tf-btn active" onclick="setTF(this,'1m')">1分</button>
+                <button class="tf-btn" onclick="setTF(this,'3m')">3分</button>
+                <button class="tf-btn" onclick="setTF(this,'5m')">5分</button>
+                <button class="tf-btn" onclick="setTF(this,'15m')">15分</button>
+                <button class="tf-btn" onclick="setTF(this,'30m')">30分</button>
+                <button class="tf-btn" onclick="setTF(this,'60m')">60分</button>
+              </div>
+              <div class="tf-group">
+                <button class="tf-btn" onclick="setTF(this,'D')">日</button>
+                <button class="tf-btn" onclick="setTF(this,'W')">週</button>
+                <button class="tf-btn" onclick="setTF(this,'M')">月</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="padding:0 10px 10px">
+          <div class="kline-placeholder">
+            <div>📈 K 線圖<br><span style="font-size:10px">第二階段接入 TradingView</span></div>
+          </div>
+        </div>
+        <!-- OHLC -->
+        <div class="ohlc-grid">
+          <div class="ohlc-cell"><div class="ohlc-label">開盤</div><div class="ohlc-val mono">968</div></div>
+          <div class="ohlc-cell"><div class="ohlc-label">最高</div><div class="ohlc-val mono up">985</div></div>
+          <div class="ohlc-cell"><div class="ohlc-label">最低</div><div class="ohlc-val mono down">962</div></div>
+          <div class="ohlc-cell"><div class="ohlc-label">成交量</div><div class="ohlc-val mono">42,813</div></div>
+        </div>
+      </div>
+
+      <!-- data tabs -->
+      <div class="panel">
+        <div class="tab-bar" id="data-tabs">
+          <button class="tab-btn active" onclick="switchTab('basic')">基本資料</button>
+          <button class="tab-btn" onclick="switchTab('chip')">籌碼面</button>
+          <button class="tab-btn" onclick="switchTab('finance')">財務面</button>
+          <button class="tab-btn" onclick="switchTab('tech')">技術面</button>
+          <button class="tab-btn" onclick="switchTab('custom')">自訂指標</button>
+        </div>
+
+        <!-- BASIC -->
+        <div class="tab-content active" id="tab-basic">
+          <div class="info-grid">
+            <div class="info-item"><div class="info-item-label">本益比</div><div class="info-item-val mono">22.4x</div></div>
+            <div class="info-item"><div class="info-item-label">股價淨值比</div><div class="info-item-val mono">7.8x</div></div>
+            <div class="info-item"><div class="info-item-label">殖利率</div><div class="info-item-val mono up">2.15%</div></div>
+            <div class="info-item"><div class="info-item-label">市值</div><div class="info-item-val mono">25.4兆</div></div>
+            <div class="info-item"><div class="info-item-label">52週高</div><div class="info-item-val mono up">1,080</div></div>
+            <div class="info-item"><div class="info-item-label">52週低</div><div class="info-item-val mono down">680</div></div>
+            <div class="info-item"><div class="info-item-label">產業別</div><div class="info-item-val" style="font-size:12px">半導體</div></div>
+            <div class="info-item"><div class="info-item-label">股本</div><div class="info-item-val mono">2,593億</div></div>
+            <div class="info-item"><div class="info-item-label">流通股數</div><div class="info-item-val mono">259.3億</div></div>
+            <div class="info-item"><div class="info-item-label">外資持股%</div><div class="info-item-val mono">74.8%</div></div>
+          </div>
+        </div>
+
+        <!-- CHIP -->
+        <div class="tab-content" id="tab-chip">
+          <!-- 三大法人 -->
+          <div class="panel-hd" style="margin:-12px -12px 10px">
+            <span>三大法人買賣超</span>
+            <div class="right">
+              <button class="expand-btn" title="展開圖表">📊</button>
+            </div>
+          </div>
+          <table class="chip-table">
+            <thead><tr><th style="text-align:left">法人</th><th>今日</th><th>昨日</th><th>近5日</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>
+                  <div class="chip-name">外資</div>
+                  <div class="chip-sub"><span class="tag ext-buy">外+5</span><span style="font-size:10px;color:var(--text3)">持股74.8%</span></div>
+                </td>
+                <td><div class="chip-num up">+18,420</div></td>
+                <td><div class="chip-num up">+9,200</div></td>
+                <td><div class="chip-num up">+52,100</div></td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="chip-name">投信</div>
+                  <div class="chip-sub"><span class="tag inv-buy">投+3</span></div>
+                </td>
+                <td><div class="chip-num up">+3,150</div></td>
+                <td><div class="chip-num up">+2,800</div></td>
+                <td><div class="chip-num up">+8,420</div></td>
+              </tr>
+              <tr>
+                <td><div class="chip-name">自營商</div></td>
+                <td><div class="chip-num down">-1,240</div></td>
+                <td><div class="chip-num down">-880</div></td>
+                <td><div class="chip-num down">-3,200</div></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div style="height:12px"></div>
+
+          <!-- 土洋同向 -->
+          <div class="panel-hd" style="margin:0 -12px 10px">
+            <span>土洋同向訊號</span>
+            <button class="expand-btn" title="展開圖表">📊</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:8px;background:var(--bg3);border-radius:8px">
+            <span style="font-size:22px">🟦</span>
+            <div>
+              <div style="font-size:13px;font-weight:700;color:var(--accent)">外資 + 投信 同步買超</div>
+              <div style="font-size:11px;color:var(--text3)">外資連買5日，投信連買3日</div>
+            </div>
+          </div>
+
+          <div style="height:12px"></div>
+
+          <!-- 集保大戶 -->
+          <div class="panel-hd" style="margin:0 -12px 10px">
+            <span>集保大戶持股分布</span>
+            <div class="right">
+              <span style="font-size:10px;color:var(--text3)">統計週：4/6</span>
+              <button class="expand-btn" title="趨勢圖">📈</button>
+            </div>
+          </div>
+          <div class="week-btns" style="margin-bottom:8px">
+            <button class="small-btn week-btn active">本週</button>
+            <button class="small-btn week-btn">上週</button>
+            <button class="small-btn week-btn">3週前</button>
+            <button class="small-btn week-btn">4週前</button>
+            <button class="small-btn week-btn">8週前</button>
+            <button class="small-btn week-btn">12週前</button>
+          </div>
+          <div class="scroll-x">
+            <table class="chip-table" style="min-width:360px">
+              <thead><tr><th style="text-align:left">級距</th><th>人數</th><th>持股%</th><th>週變化</th><th>佔比</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td style="font-size:11px">400張以上</td>
+                  <td class="chip-num">824</td>
+                  <td class="chip-num">42.3%</td>
+                  <td class="chip-num up">+0.8%</td>
+                  <td><div class="dist-bar-bg" style="width:80px"><div class="dist-bar-fill" style="width:42.3%"></div></div></td>
+                </tr>
+                <tr>
+                  <td style="font-size:11px">200-400張</td>
+                  <td class="chip-num">1,256</td>
+                  <td class="chip-num">18.7%</td>
+                  <td class="chip-num down">-0.2%</td>
+                  <td><div class="dist-bar-bg" style="width:80px"><div class="dist-bar-fill" style="width:18.7%"></div></div></td>
+                </tr>
+                <tr>
+                  <td style="font-size:11px">100-200張</td>
+                  <td class="chip-num">2,841</td>
+                  <td class="chip-num">12.4%</td>
+                  <td class="chip-num">±0.0%</td>
+                  <td><div class="dist-bar-bg" style="width:80px"><div class="dist-bar-fill" style="width:12.4%"></div></div></td>
+                </tr>
+                <tr>
+                  <td style="font-size:11px">1-100張</td>
+                  <td class="chip-num">186,432</td>
+                  <td class="chip-num">26.6%</td>
+                  <td class="chip-num down">-0.6%</td>
+                  <td><div class="dist-bar-bg" style="width:80px"><div class="dist-bar-fill" style="width:26.6%"></div></div></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- FINANCE -->
+        <div class="tab-content" id="tab-finance">
+          <!-- EPS -->
+          <div class="panel-hd" style="margin:-12px -12px 10px">
+            <span>每股盈餘 EPS</span>
+            <div class="right">
+              <button class="small-btn active">單季</button>
+              <button class="small-btn">累計</button>
+            </div>
+          </div>
+          <div class="eps-bars" id="eps-bars"></div>
+          <div class="eps-nums" id="eps-nums"></div>
+
+          <div style="height:12px"></div>
+
+          <!-- 法人預測 -->
+          <div class="panel-hd" style="margin:0 -12px 10px">
+            <span>法人 EPS 預測</span>
+          </div>
+          <table class="chip-table">
+            <thead><tr><th style="text-align:left">券商</th><th>FY24E</th><th>FY25E</th><th>評等</th></tr></thead>
+            <tbody>
+              <tr><td style="font-size:12px">摩根士丹利</td><td class="chip-num">39.2</td><td class="chip-num">52.8</td><td><span class="rating-tag strong-buy">強力買進</span></td></tr>
+              <tr><td style="font-size:12px">高盛</td><td class="chip-num">38.6</td><td class="chip-num">51.4</td><td><span class="rating-tag buy">買進</span></td></tr>
+              <tr><td style="font-size:12px">瑞銀</td><td class="chip-num">40.1</td><td class="chip-num">53.2</td><td><span class="rating-tag strong-buy">強力買進</span></td></tr>
+            </tbody>
+          </table>
+          <div class="disclaimer">來源：Bloomberg 彙整，僅供參考。預測值可能與實際結果有差異。</div>
+
+          <div style="height:8px"></div>
+
+          <!-- 財務指標 -->
+          <div class="panel-hd" style="margin:0 -12px 10px">
+            <span>關鍵財務指標</span>
+          </div>
+          <div class="fin-grid">
+            <div class="fin-card">
+              <div class="fin-card-hd"><span class="fin-label">毛利率</span><button class="help-icon">❓</button></div>
+              <div class="fin-val mono up">55.2%</div>
+              <div class="fin-unit">近4季均值</div>
+            </div>
+            <div class="fin-card">
+              <div class="fin-card-hd"><span class="fin-label">營益率</span><button class="help-icon">❓</button></div>
+              <div class="fin-val mono up">42.0%</div>
+              <div class="fin-unit">近4季均值</div>
+            </div>
+            <div class="fin-card">
+              <div class="fin-card-hd"><span class="fin-label">淨利率</span><button class="help-icon">❓</button></div>
+              <div class="fin-val mono up">39.1%</div>
+              <div class="fin-unit">近4季均值</div>
+            </div>
+            <div class="fin-card">
+              <div class="fin-card-hd"><span class="fin-label">ROE</span><button class="help-icon">❓</button></div>
+              <div class="fin-val mono up">28.4%</div>
+              <div class="fin-unit">近4季均值</div>
+            </div>
+            <div class="fin-card">
+              <div class="fin-card-hd"><span class="fin-label">ROA</span><button class="help-icon">❓</button></div>
+              <div class="fin-val mono up">18.2%</div>
+              <div class="fin-unit">近4季均值</div>
+            </div>
+            <div class="fin-card">
+              <div class="fin-card-hd"><span class="fin-label">負債比</span><button class="help-icon">❓</button></div>
+              <div class="fin-val mono">32.6%</div>
+              <div class="fin-unit">近4季均值</div>
+            </div>
+          </div>
+
+          <div style="height:8px"></div>
+          <div class="panel-hd" style="margin:0 -12px 8px"><span>月營收</span><button class="expand-btn">📊</button></div>
+          <div class="placeholder-chart">月營收圖表 — 展開查看</div>
+        </div>
+
+        <!-- TECH -->
+        <div class="tab-content" id="tab-tech">
+          <div style="padding:20px 0;text-align:center;color:var(--text3);font-size:13px">
+            📊 技術面指標 — 第二階段接入<br>
+            <span style="font-size:11px">MA / MACD / RSI / KD / 布林通道</span>
+          </div>
+        </div>
+
+        <!-- CUSTOM -->
+        <div class="tab-content" id="tab-custom">
+          <div style="padding:20px 0;text-align:center;color:var(--text3);font-size:13px">
+            ⚙️ 自訂指標 — 第二階段開放設定
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: NEWS / ANALYST -->
+    <div id="right-col" class="mobile-view" id="view-news">
+
+      <!-- Analyst -->
+      <div class="panel">
+        <div class="panel-hd">券商評等</div>
+        <div style="padding:12px">
+          <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px">目標價區間</div>
+          <div class="tp-bar-wrap">
+            <span class="tp-label">800</span>
+            <div class="tp-bar-track">
+              <div class="tp-bar-range" style="left:20%;width:60%"></div>
+              <div class="tp-marker" style="left:55%" title="現價 980"></div>
+            </div>
+            <span class="tp-label">1,200</span>
+          </div>
+          <div style="text-align:center;font-size:10px;color:var(--text3);margin-bottom:10px">目標價中位數：1,050｜現價：980</div>
+
+          <div class="consensus-row">
+            <span class="consensus-label">共識評等</span>
+            <span class="consensus-val up">強力買進</span>
+          </div>
+          <div class="analyst-bar">
+            <div class="buy-seg" style="width:72%"></div>
+            <div class="hold-seg" style="width:20%"></div>
+            <div class="sell-seg" style="width:8%"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-bottom:10px">
+            <span>買進 72%</span><span>中立 20%</span><span>賣出 8%</span>
+          </div>
+
+          <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:6px;letter-spacing:.3px">近期報告</div>
+          <div class="analyst-row">
+            <div>
+              <div style="font-size:12px;font-weight:700">摩根士丹利</div>
+              <div style="font-size:10px;color:var(--text3)">2025/06/12 · AI需求強勁，上調目標價</div>
+            </div>
+            <div style="text-align:right">
+              <div><span class="rating-tag strong-buy">強力買進</span></div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;margin-top:3px">$1,150</div>
+            </div>
+          </div>
+          <div class="analyst-row">
+            <div>
+              <div style="font-size:12px;font-weight:700">高盛</div>
+              <div style="font-size:10px;color:var(--text3)">2025/06/10 · CoWoS產能持續擴張</div>
+            </div>
+            <div style="text-align:right">
+              <div><span class="rating-tag buy">買進</span></div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;margin-top:3px">$1,050</div>
+            </div>
+          </div>
+          <div class="analyst-row">
+            <div>
+              <div style="font-size:12px;font-weight:700">瑞銀</div>
+              <div style="font-size:10px;color:var(--text3)">2025/06/08 · 先進封裝出貨超預期</div>
+            </div>
+            <div style="text-align:right">
+              <div><span class="rating-tag strong-buy">強力買進</span></div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;margin-top:3px">$1,180</div>
+            </div>
+          </div>
+          <div class="disclaimer">本資訊由第三方提供，僅供參考，不構成投資建議。投資有風險，請謹慎評估。</div>
+        </div>
+      </div>
+
+      <!-- News -->
+      <div class="panel">
+        <div class="panel-hd">即時新聞</div>
+        <div style="padding:0 12px">
+          <div class="tab-bar" id="news-tabs">
+            <button class="tab-btn active" onclick="switchNewsTab('domestic')">國內</button>
+            <button class="tab-btn" onclick="switchNewsTab('intl')">國際</button>
+          </div>
+        </div>
+        <div style="padding:0 12px 12px" id="news-list">
+          <!-- injected by JS -->
+        </div>
+      </div>
+
+      <!-- MOPS -->
+      <div class="panel">
+        <div class="panel-hd">公開資訊觀測站</div>
+        <div style="padding:0 12px">
+          <div class="tab-bar" id="mops-tabs">
+            <button class="tab-btn active" onclick="switchMopsTab('major')">重大訊息</button>
+            <button class="tab-btn" onclick="switchMopsTab('analyst')">法說會</button>
+            <button class="tab-btn" onclick="switchMopsTab('cb')">可轉債</button>
+            <button class="tab-btn" onclick="switchMopsTab('buyback')">庫藏股</button>
+          </div>
+        </div>
+        <div style="padding:0 12px 12px" id="mops-list">
+          <!-- injected by JS -->
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- mobile bottom nav -->
+<nav class="mobile-nav" id="mobile-nav">
+  <button class="mobile-nav-btn active" onclick="mobileNav('watchlist',this)" id="mnav-watchlist">
+    <span class="icon">📋</span><span>自選股</span>
+  </button>
+  <button class="mobile-nav-btn" onclick="mobileNav('chart',this)" id="mnav-chart">
+    <span class="icon">📈</span><span>圖表</span>
+  </button>
+  <button class="mobile-nav-btn" onclick="mobileNav('news',this)" id="mnav-news">
+    <span class="icon">📰</span><span>資訊</span>
+  </button>
+</nav>
+
+<!-- ==================== MODALS ==================== -->
+
+<!-- Help modal -->
+<div class="modal-overlay" id="help-modal" onclick="closeModalBg(event,'help-modal')">
+  <div class="modal-box">
+    <div class="modal-hd">
+      <span class="modal-title">📖 訊號說明</span>
+      <button class="modal-close" onclick="closeModal('help-modal')">✕</button>
+    </div>
+    <div class="help-item">
+      <div class="help-tag"><span class="tag ext-buy">外+5</span></div>
+      <div class="help-desc"><strong>外資連買N日</strong><br>外資（含外資自營）連續買超的天數，數字越大表示買盤持續性越強。</div>
+    </div>
+    <div class="help-item">
+      <div class="help-tag"><span class="tag ext-sell">外-3</span></div>
+      <div class="help-desc"><strong>外資連賣N日</strong><br>外資連續賣超的天數，綠色顯示。</div>
+    </div>
+    <div class="help-item">
+      <div class="help-tag"><span class="tag inv-buy">投+3</span></div>
+      <div class="help-desc"><strong>投信連買N日</strong><br>國內投信法人連續買超天數，淡紅色。</div>
+    </div>
+    <div class="help-item">
+      <div class="help-tag"><span class="tag inv-sell">投-2</span></div>
+      <div class="help-desc"><strong>投信連賣N日</strong><br>國內投信法人連續賣超天數，淡綠色。</div>
+    </div>
+    <div class="help-item">
+      <div class="help-tag"><span class="tag same">同</span></div>
+      <div class="help-desc"><strong>土洋同向</strong><br>外資與投信同時買超或同時賣超，顯示法人同向力道，在外資、投信都不顯示時才出現。</div>
+    </div>
+    <div class="help-item">
+      <div class="help-tag"><span class="tag div">息5</span></div>
+      <div class="help-desc"><strong>除息倒數N天</strong><br>距離除息日剩餘交易日數，橘色顯示提醒。</div>
+    </div>
+    <div class="help-item">
+      <div class="help-tag"><span class="tag whale">大</span></div>
+      <div class="help-desc"><strong>集保大戶異動警示</strong><br>集保統計400張以上大戶持股週增幅異常（單週增幅 > 1.5% 或減幅 > 1.5% 為門檻），代表大戶籌碼出現明顯異動。</div>
+    </div>
+  </div>
+</div>
+
+<!-- Notif modal -->
+<div class="modal-overlay" id="notif-modal" onclick="closeModalBg(event,'notif-modal')">
+  <div class="modal-box">
+    <div class="modal-hd">
+      <span class="modal-title">🔔 最新通知</span>
+      <button class="modal-close" onclick="closeModal('notif-modal')">✕</button>
+    </div>
+    <div class="notif-item">
+      <div class="notif-icon" style="background:#fef2f2">📈</div>
+      <div class="notif-content">
+        <div class="notif-title">台積電 (2330) — 外資連買第5日</div>
+        <div class="notif-time">今日 09:32</div>
+      </div>
+    </div>
+    <div class="notif-item">
+      <div class="notif-icon" style="background:#f0faf5">📉</div>
+      <div class="notif-content">
+        <div class="notif-title">鴻海 (2317) — 投信連賣第6日</div>
+        <div class="notif-time">今日 10:05</div>
+      </div>
+    </div>
+    <div class="notif-item">
+      <div class="notif-icon" style="background:#fff7ed">📅</div>
+      <div class="notif-content">
+        <div class="notif-title">聯發科 (2454) — 除息倒數 12 天</div>
+        <div class="notif-time">昨日 18:00</div>
+      </div>
+    </div>
+    <div class="notif-item">
+      <div class="notif-icon" style="background:#f5f0ff">🐋</div>
+      <div class="notif-content">
+        <div class="notif-title">台積電 (2330) — 集保大戶持股週增 +1.8%</div>
+        <div class="notif-time">昨日 20:00</div>
+      </div>
+    </div>
+    <div class="notif-item">
+      <div class="notif-icon" style="background:#ebf4ff">🤝</div>
+      <div class="notif-content">
+        <div class="notif-title">聯發科 (2454) — 外資+投信 同步買超</div>
+        <div class="notif-time">昨日 14:20</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- News detail modal -->
+<div class="modal-overlay" id="news-modal" onclick="closeModalBg(event,'news-modal')" style="align-items:center">
+  <div class="modal-box" style="border-radius:16px;max-width:540px;margin:16px;width:calc(100% - 32px)">
+    <div class="modal-hd">
+      <span class="modal-title" id="news-modal-title" style="font-size:13px;line-height:1.5;max-width:90%"></span>
+      <button class="modal-close" onclick="closeModal('news-modal')">✕</button>
+    </div>
+    <div class="news-modal-meta" id="news-modal-meta"></div>
+    <div class="news-modal-body" id="news-modal-body"></div>
+  </div>
+</div>
+
+<script>
+// ===================== DATA =====================
+const STOCKS = {
+  groups:[
+    {name:'台股核心',stocks:[
+      {code:'2330',name:'台積電',price:980,pct:1.24,ext:5,inv:3,div:null,whale:true},
+      {code:'2454',name:'聯發科',price:1285,pct:1.98,ext:4,inv:4,div:12,whale:false},
+      {code:'2317',name:'鴻海',price:178.5,pct:-0.56,ext:-2,inv:-6,div:null,whale:false},
+      {code:'2308',name:'台達電',price:375,pct:1.22,ext:1,inv:2,div:null,whale:false},
+      {code:'3008',name:'大立光',price:2280,pct:1.33,ext:1,inv:0,div:null,whale:false},
+    ]},
+    {name:'國際股市',stocks:[
+      {code:'EWJ',name:'日本ETF',price:68.4,pct:0.18,ext:0,inv:0,div:null,whale:false},
+      {code:'EWY',name:'韓國ETF',price:58.1,pct:-0.75,ext:0,inv:0,div:null,whale:false},
+      {code:'SPY',name:'S&P500 ETF',price:518.7,pct:0.27,ext:0,inv:0,div:null,whale:false},
+    ]},
+    {name:'美國科技',stocks:[
+      {code:'NVDA',name:'NVIDIA',price:878.5,pct:2.61,ext:3,inv:0,div:null,whale:false},
+      {code:'AAPL',name:'Apple',price:211.5,pct:0.86,ext:2,inv:0,div:null,whale:false},
+      {code:'MSFT',name:'Microsoft',price:415,pct:0.78,ext:2,inv:0,div:null,whale:false},
+      {code:'TSLA',name:'Tesla',price:248,pct:-2.05,ext:-1,inv:0,div:null,whale:false},
+    ]},
+    {name:'自訂',stocks:[
+      {code:'2382',name:'廣達',price:285,pct:0.71,ext:2,inv:1,div:null,whale:false},
+      {code:'006208',name:'富邦台50',price:112.3,pct:0.54,ext:0,inv:0,div:30,whale:false},
+    ]},
+  ]
+};
+
+const TICKER_DATA = [
+  {name:'台指期夜盤',price:'21,912',chg:'+0.31%',night:true},
+  {name:'台灣加權',price:'21,843',chg:'+0.57%'},
+  {name:'櫃買指數',price:'251.4',chg:'+0.43%'},
+  {name:'道　瓊',price:'39,142',chg:'-0.23%'},
+  {name:'S&P 500',price:'5,181',chg:'+0.27%'},
+  {name:'NASDAQ',price:'18,432',chg:'+0.54%'},
+  {name:'日經 225',price:'39,580',chg:'+0.32%'},
+  {name:'韓 KOSPI',price:'2,712',chg:'-0.15%'},
+  {name:'黃金現貨',price:'2,341',chg:'+0.68%'},
+  {name:'原油 WTI',price:'78.42',chg:'-0.44%'},
+  {name:'USD/TWD',price:'32.18',chg:'+0.12%'},
+];
+
+const NEWS = {
+  domestic:[
+    {src:'經濟日報',time:'10:32',title:'台積電法說會：2025年資本支出上調至360億美元，AI需求持續強勁'},
+    {src:'工商時報',time:'09:15',title:'外資連5日買超台股，台積電、聯發科獲法人青睞'},
+    {src:'MoneyDJ',time:'08:45',title:'聯發科Dimensity 9400導入台積電3nm，手機旗艦晶片搶市佔'},
+    {src:'鉅亨網',time:'07:30',title:'台股早盤翻紅，大盤站上21,800點關卡，半導體族群表現亮眼'},
+  ],
+  intl:[
+    {src:'Reuters',time:'11:02',title:'NVIDIA announces next-gen Blackwell Ultra AI chips, expects 30% performance boost'},
+    {src:'Bloomberg',time:'10:18',title:'Fed minutes signal possible rate cuts in Q3, markets rally on dovish tone'},
+    {src:'WSJ',time:'09:40',title:'Apple Q2 earnings beat estimates, iPhone sales rebound in China market'},
+    {src:'FT',time:'08:55',title:'Tesla delivery numbers disappoint Wall Street, stock falls pre-market'},
+  ]
+};
+
+const NEWS_BODY = {
+  domestic:[
+    '台積電今日召開法人說明會，宣布上調2025年資本支出計畫至360億美元，較原先預估高出10%。董事長魏哲家表示，AI伺服器需求持續超出預期，CoWoS先進封裝訂單已排至2026年。台積電預估下一季營收將達220-228億美元，毛利率維持在53-55%區間。法人普遍給予正面評價，目標價中位數上調至1,050元。',
+    '根據集保結算所最新數據，外資昨日買超台股逾180億元，為近三個月最大單日買超金額。台積電、聯發科、廣達分別獲得外資大量買進，顯示國際機構法人對台灣科技股信心回升。投信同步加碼台股，三大法人合計買超逾200億元，推動大盤量能放大。',
+    '聯發科與台積電合作開發的Dimensity 9400旗艦晶片，採用最新3奈米製程，預計下半年量產。業界人士指出，此一合作將強化聯發科在Android旗艦手機市場的競爭力，挑戰高通驍龍8系列的市佔。市場預估聯發科2025年旗艦晶片出貨量有望突破1億顆。',
+    '台股今日早盤表現強勢，加權指數突破21,800點整數關卡，電子類股引領上漲。台積電、聯發科、鴻海等權值股同步走強，帶動大盤量能有效放大。法人分析，在外資持續回流、AI需求題材加持下，台股短線仍有上攻動能。',
+  ],
+  intl:[
+    'NVIDIA CEO Jensen Huang unveiled the next generation Blackwell Ultra architecture at the annual GTC conference. The new chips promise 30% performance improvement over current Blackwell chips while maintaining thermal efficiency. Data center customers including Microsoft, Google, and Amazon have already placed significant orders for 2025 delivery.',
+    'Federal Reserve minutes released Wednesday showed officials leaning toward potential rate cuts as early as September, citing progress on inflation. Markets rallied sharply on the news, with the S&P 500 gaining 0.8% and the Nasdaq Composite rising over 1%. Bond yields fell across the curve.',
+    'Apple reported second-quarter earnings that surpassed analyst expectations, driven by a surprise rebound in iPhone sales in China. Revenue rose 5% year-over-year to $94.9 billion. The company also announced a $110 billion share buyback program, the largest in its history.',
+    'Tesla reported disappointing delivery numbers for Q1, coming in below Wall Street estimates at 386,810 vehicles. Shares fell 4% in pre-market trading. CEO Elon Musk acknowledged competitive pressure from Chinese EV makers but expressed confidence in the upcoming Model 2 launch.',
+  ]
+};
+
+const MOPS = {
+  major:[
+    {code:'2330',name:'台積電',time:'06/12 17:30',title:'公告2025年第二季業績展望及資本支出計劃'},
+    {code:'2454',name:'聯發科',time:'06/11 18:00',title:'宣布與台積電擴大3nm製程合作協議'},
+    {code:'2317',name:'鴻海',time:'06/10 20:15',title:'公告子公司鴻準精密6月份營業收入'},
+    {code:'3008',name:'大立光',time:'06/09 17:45',title:'說明近期光學元件出貨狀況及未來展望'},
+  ],
+  analyst:[
+    {code:'2330',name:'台積電',time:'06/15 14:00',title:'2025年第一季法人說明會'},
+    {code:'2454',name:'聯發科',time:'06/08 14:30',title:'2025年第一季線上法說會'},
+  ],
+  cb:[
+    {code:'3711',name:'日月光投控',time:'06/05',title:'發行第七次無擔保可轉換公司債，金額30億元'},
+  ],
+  buyback:[
+    {code:'2317',name:'鴻海',time:'06/01-06/30',title:'實施庫藏股買回：10萬至20萬張，買回區間160-200元'},
+    {code:'2308',name:'台達電',time:'05/20-06/20',title:'實施庫藏股買回：3萬張，買回區間350-420元'},
+  ]
+};
+
+const EPS_DATA = [
+  {q:'24Q1',val:8.70},{q:'23Q4',val:9.21},{q:'23Q3',val:8.14},
+  {q:'23Q2',val:7.01},{q:'23Q1',val:6.55},{q:'22Q4',val:10.83},
+  {q:'22Q3',val:11.39},{q:'22Q2',val:10.22},
+];
+
+// ===================== TICKER =====================
+function buildTicker(){
+  const track = document.getElementById('ticker-track');
+  const items = [...TICKER_DATA,...TICKER_DATA]; // duplicate for seamless loop
+  track.innerHTML = items.map(d=>{
+    const up = d.chg.startsWith('+');
+    const down = d.chg.startsWith('-');
+    const cls = up?'up':down?'down':'flat';
+    return `<div class="ticker-item${d.night?' night':''}">
+      ${d.night?'<span class="ticker-night-tag">夜盤</span>':''}
+      <span class="ticker-name">${d.name}</span>
+      <span class="ticker-price mono">${d.price}</span>
+      <span class="ticker-chg ${cls}">${d.chg}</span>
+    </div>`;
+  }).join('');
+}
+
+// ===================== CLOCK =====================
+function updateClock(){
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2,'0');
+  const m = String(now.getMinutes()).padStart(2,'0');
+  const s = String(now.getSeconds()).padStart(2,'0');
+  const y = now.getFullYear();
+  const mo = String(now.getMonth()+1).padStart(2,'0');
+  const d = String(now.getDate()).padStart(2,'0');
+  document.getElementById('clock').innerHTML = `${h}:${m}:${s}<br>${y}/${mo}/${d}`;
+  updateMarketBadges(now);
+}
+
+function updateMarketBadges(now){
+  const h = now.getHours(), m = now.getMinutes();
+  const hm = h*100+m;
+  // Taiwan: 09:00-13:30
+  const twOpen = hm >= 900 && hm <= 1330;
+  // US: 22:30-05:00 (next day) TWD time (assuming UTC+8)
+  const usOpen = hm >= 2230 || hm <= 500;
+
+  const tw = document.getElementById('badge-tw');
+  const us = document.getElementById('badge-us');
+  tw.textContent = twOpen ? '台股開盤中' : '台股休市';
+  tw.className = 'badge ' + (twOpen ? 'tw-open' : 'closed');
+  us.textContent = usOpen ? '美股開盤中' : '美股休市';
+  us.className = 'badge ' + (usOpen ? 'us-open' : 'closed');
+}
+
+// ===================== WATCHLIST =====================
+function buildWatchlist(filter=''){
+  const area = document.getElementById('watchlist-area');
+  let html = '';
+  STOCKS.groups.forEach(g=>{
+    const filtered = g.stocks.filter(s=>
+      s.code.toLowerCase().includes(filter.toLowerCase()) ||
+      s.name.includes(filter)
+    );
+    if(!filtered.length) return;
+    html += `<div class="group-hd">${g.name}</div>`;
+    filtered.forEach(s=>{
+      const up = s.pct > 0, down = s.pct < 0;
+      const pctCls = up?'up':down?'down':'flat';
+      const pctStr = (up?'+':'')+s.pct.toFixed(2)+'%';
+      // tags
+      let tags = '';
+      if(s.ext > 0) tags += `<span class="tag ext-buy">外+${s.ext}</span>`;
+      else if(s.ext < 0) tags += `<span class="tag ext-sell">外${s.ext}</span>`;
+      if(s.inv > 0) tags += `<span class="tag inv-buy">投+${s.inv}</span>`;
+      else if(s.inv < 0) tags += `<span class="tag inv-sell">投${s.inv}</span>`;
+      // same direction (only if both not shown)
+      const extShown = s.ext !== 0, invShown = s.inv !== 0;
+      if(!extShown && !invShown && s.ext!==0 && s.inv!==0 && Math.sign(s.ext)===Math.sign(s.inv))
+        tags += `<span class="tag same">同</span>`;
+      if(s.div) tags += `<span class="tag div">息${s.div}</span>`;
+      if(s.whale) tags += `<span class="tag whale">大</span>`;
+
+      const id = 'stock-'+s.code;
+      html += `<div class="stock-row" id="${id}" onclick="selectStock('${s.code}')">
+        <div class="stock-left">
+          <div class="stock-code mono">${s.code}</div>
+          <div class="stock-name">${s.name}</div>
+          <div class="stock-tags">${tags}</div>
+        </div>
+        <canvas class="mini-chart" width="60" height="32" id="mini-${s.code}"></canvas>
+        <div class="stock-right">
+          <div class="stock-price mono">${s.price.toLocaleString()}</div>
+          <div class="stock-pct ${pctCls}">${pctStr}</div>
+        </div>
+      </div>`;
+    });
+  });
+  area.innerHTML = html;
+  // draw mini charts after render
+  STOCKS.groups.forEach(g=>g.stocks.forEach(s=>drawMiniChart(s)));
+}
+
+function drawMiniChart(s){
+  const canvas = document.getElementById('mini-'+s.code);
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  // generate fake sparkline
+  const pts = [];
+  let v = s.price * (1 - s.pct/100);
+  for(let i=0;i<20;i++){
+    v += (Math.random()-.48) * s.price * 0.008;
+    pts.push(v);
+  }
+  pts.push(s.price);
+  const min = Math.min(...pts), max = Math.max(...pts);
+  const range = max-min || 1;
+  const color = s.pct > 0 ? '#d42b2b' : s.pct < 0 ? '#1a9e5c' : '#8a909c';
+  ctx.clearRect(0,0,w,h);
+  ctx.beginPath();
+  pts.forEach((p,i)=>{
+    const x = (i/(pts.length-1))*w;
+    const y = h - ((p-min)/range)*(h-4) - 2;
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  // fill
+  ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath();
+  ctx.fillStyle = color + '22';
+  ctx.fill();
+}
+
+function filterStocks(){
+  buildWatchlist(document.getElementById('search-input').value);
+}
+
+// ===================== STOCK SELECT =====================
+let activeCode = '2330';
+function selectStock(code){
+  activeCode = code;
+  const s = STOCKS.groups.flatMap(g=>g.stocks).find(s=>s.code===code);
+  if(!s) return;
+  // update detail
+  const up = s.pct > 0, dn = s.pct < 0;
+  const cls = up?'up':dn?'down':'';
+  const chgAmt = (s.pct/100*s.price).toFixed(0);
+  const chgStr = (up?'+':'')+chgAmt+' ('+(up?'+':'')+s.pct+'%)';
+  document.getElementById('detail-code').textContent = s.code;
+  document.getElementById('detail-name').textContent = s.name;
+  const priceEl = document.getElementById('detail-price');
+  priceEl.textContent = s.price.toLocaleString();
+  priceEl.className = 'stock-title-price mono '+cls;
+  const chgEl = document.getElementById('detail-chg');
+  chgEl.textContent = chgStr;
+  chgEl.className = 'stock-title-chg mono '+cls;
+  // active highlight
+  document.querySelectorAll('.stock-row').forEach(r=>r.classList.remove('active'));
+  const row = document.getElementById('stock-'+code);
+  if(row) row.classList.add('active');
+  // mobile: switch to chart view
+  if(window.innerWidth < 900) mobileNavTo('chart');
+}
+
+// ===================== TABS =====================
+function switchTab(name){
+  document.querySelectorAll('#data-tabs .tab-btn').forEach((btn,i)=>{
+    const names = ['basic','chip','finance','tech','custom'];
+    btn.classList.toggle('active', names[i]===name);
+  });
+  document.querySelectorAll('[id^="tab-"]').forEach(el=>{
+    el.classList.toggle('active', el.id==='tab-'+name);
+  });
+}
+
+let newsTab = 'domestic';
+function switchNewsTab(tab){
+  newsTab = tab;
+  document.querySelectorAll('#news-tabs .tab-btn').forEach((btn,i)=>{
+    btn.classList.toggle('active', ['domestic','intl'][i]===tab);
+  });
+  buildNews();
+}
+
+function buildNews(){
+  const list = document.getElementById('news-list');
+  const items = NEWS[newsTab];
+  const bodies = NEWS_BODY[newsTab];
+  list.innerHTML = items.map((n,i)=>`
+    <div class="news-row" onclick="openNewsModal(${i})">
+      <div class="news-meta">${n.src} · ${n.time}</div>
+      <div class="news-title">${n.title}</div>
+    </div>
+  `).join('');
+}
+
+function openNewsModal(i){
+  const n = NEWS[newsTab][i];
+  const body = NEWS_BODY[newsTab][i];
+  document.getElementById('news-modal-title').textContent = n.title;
+  document.getElementById('news-modal-meta').textContent = n.src + ' · ' + n.time;
+  document.getElementById('news-modal-body').textContent = body;
+  openModal('news-modal');
+}
+
+let mopsTab = 'major';
+function switchMopsTab(tab){
+  mopsTab = tab;
+  document.querySelectorAll('#mops-tabs .tab-btn').forEach((btn,i)=>{
+    btn.classList.toggle('active', ['major','analyst','cb','buyback'][i]===tab);
+  });
+  buildMops();
+}
+
+function buildMops(){
+  const list = document.getElementById('mops-list');
+  const items = MOPS[mopsTab];
+  if(!items || !items.length){
+    list.innerHTML = '<div style="padding:16px 0;text-align:center;color:var(--text3);font-size:12px">目前無資料</div>';
+    return;
+  }
+  list.innerHTML = items.map(m=>`
+    <div class="mops-row">
+      <div class="mops-meta">
+        <span class="mono" style="color:var(--accent)">${m.code}</span>
+        <span>${m.name}</span>
+        <span>${m.time}</span>
+      </div>
+      <div class="mops-title">${m.title}</div>
+    </div>
+  `).join('');
+}
+
+// ===================== EPS =====================
+function buildEPS(){
+  const maxVal = Math.max(...EPS_DATA.map(d=>Math.abs(d.val)));
+  const bars = document.getElementById('eps-bars');
+  const nums = document.getElementById('eps-nums');
+  if(!bars || !nums) return;
+  bars.innerHTML = EPS_DATA.map(d=>{
+    const h = Math.round((Math.abs(d.val)/maxVal)*72);
+    const color = d.val>=0 ? 'var(--up)' : 'var(--down)';
+    return `<div class="eps-bar" style="height:${h}px;background:${color}" title="${d.q}: ${d.val}"></div>`;
+  }).join('');
+  nums.innerHTML = EPS_DATA.map(d=>`<div class="eps-num">${d.val.toFixed(1)}<br>${d.q}</div>`).join('');
+}
+
+// ===================== TF =====================
+function setTF(btn,tf){
+  btn.closest('.tf-group').querySelectorAll('.tf-btn').forEach(b=>b.classList.remove('active'));
+  // also remove from other group
+  document.querySelectorAll('.tf-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ===================== MOBILE NAV =====================
+function mobileNav(view, btn){
+  mobileNavTo(view);
+  document.querySelectorAll('.mobile-nav-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function mobileNavTo(view){
+  if(window.innerWidth >= 900) return;
+  const views = {watchlist:'left-col', chart:'mid-col', news:'right-col'};
+  document.getElementById('left-col').style.display = 'none';
+  document.getElementById('mid-col').style.display = 'none';
+  document.getElementById('right-col').style.display = 'none';
+  document.getElementById(views[view]).style.display = 'flex';
+  document.getElementById(views[view]).style.flexDirection = 'column';
+  // update nav
+  document.querySelectorAll('.mobile-nav-btn').forEach((b,i)=>{
+    b.classList.toggle('active', ['watchlist','chart','news'][i]===view);
+  });
+}
+
+function handleResize(){
+  if(window.innerWidth >= 900){
+    ['left-col','mid-col','right-col'].forEach(id=>{
+      const el = document.getElementById(id);
+      el.style.display = '';
+    });
+  } else {
+    // restore mobile default if needed
+    const anyVisible = ['left-col','mid-col','right-col'].some(id=>{
+      const el = document.getElementById(id);
+      return el.style.display !== 'none' && el.style.display !== '';
+    });
+    if(!anyVisible) mobileNavTo('watchlist');
+  }
+}
+
+// ===================== MODALS =====================
+function openModal(id){document.getElementById(id).classList.add('show')}
+function closeModal(id){document.getElementById(id).classList.remove('show')}
+function closeModalBg(e,id){if(e.target===e.currentTarget) closeModal(id)}
+
+// ===================== WEEK SWITCHER =====================
+document.addEventListener('click',function(e){
+  if(e.target.classList.contains('week-btn')){
+    e.target.closest('.week-btns').querySelectorAll('.week-btn').forEach(b=>b.classList.remove('active'));
+    e.target.classList.add('active');
+  }
+});
+
+// ===================== INIT =====================
+buildTicker();
+buildWatchlist();
+buildNews();
+buildMops();
+buildEPS();
+updateClock();
+setInterval(updateClock, 1000);
+// set initial mobile view
+if(window.innerWidth < 900) mobileNavTo('watchlist');
+window.addEventListener('resize', handleResize);
+// select default
+selectStock('2330');
+// re-highlight after building
+document.querySelectorAll('.stock-row').forEach(r=>r.classList.remove('active'));
+const firstRow = document.getElementById('stock-2330');
+if(firstRow) firstRow.classList.add('active');
+</script>
+</body>
+</html>

@@ -1,0 +1,1451 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>我的股票儀表板</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f6fa;--bg2:#ffffff;--bg3:#f0f2f7;
+  --text:#1a1d24;--text2:#464e62;--text3:#8a909c;
+  --border:#e0e4ec;
+  --up:#d42b2b;--down:#1a9e5c;--flat:#8a909c;
+  --accent:#1a5fd4;--purple:#6d3cc9;
+  --up-bg:#fef2f2;--down-bg:#f0faf5;
+  --header-h:56px;--ticker-h:40px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{font-size:14px;background:var(--bg)}
+body{font-family:'Noto Sans TC',sans-serif;color:var(--text);min-height:100vh;overflow-x:hidden}
+.mono{font-family:'IBM Plex Mono',monospace}
+
+/* ===== HEADER — FIX3 scrollable inner ===== */
+#header{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  height:var(--header-h);background:var(--bg2);
+  border-bottom:1px solid var(--border);
+  box-shadow:0 2px 8px rgba(0,0,0,.06);
+  overflow:hidden;
+}
+.header-inner{
+  display:flex;align-items:center;gap:8px;
+  padding:0 12px;height:100%;
+  overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none;
+}
+.header-inner::-webkit-scrollbar{display:none}
+.logo{
+  font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:13px;
+  color:var(--accent);white-space:nowrap;flex-shrink:0;
+  display:flex;align-items:center;gap:5px;
+}
+/* FIX1: calendar button replaces market badges */
+.cal-btn{
+  display:flex;align-items:center;gap:4px;
+  padding:3px 8px;border-radius:6px;border:1px solid var(--border);
+  background:var(--bg3);color:var(--text2);cursor:pointer;
+  font-size:11px;font-weight:600;white-space:nowrap;flex-shrink:0;
+  transition:background .15s;
+}
+.cal-btn:hover{background:var(--border)}
+.holiday-badge{
+  display:none;
+  font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;
+  background:#fff7ed;color:#c05c0c;white-space:nowrap;flex-shrink:0;
+}
+.holiday-badge.show{display:inline-flex;align-items:center;gap:3px}
+#clock{
+  font-family:'IBM Plex Mono',monospace;font-size:11px;
+  color:var(--text2);text-align:right;line-height:1.4;white-space:nowrap;flex-shrink:0;
+}
+/* FIX2: icon buttons lighter, SVG */
+.icon-btn{
+  width:32px;height:32px;border-radius:50%;border:none;
+  background:transparent;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  color:#b8c0cc;position:relative;flex-shrink:0;
+  transition:background .15s,color .15s;
+}
+.icon-btn:hover{background:var(--bg3);color:var(--text2)}
+.icon-btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.notif-dot{
+  position:absolute;top:5px;right:5px;
+  width:6px;height:6px;border-radius:50%;background:#e53e3e;
+  border:1.5px solid var(--bg2);
+}
+.avatar{
+  width:32px;height:32px;border-radius:50%;
+  background:var(--accent);color:#fff;
+  font-size:12px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;flex-shrink:0;border:2px solid var(--border);
+}
+.logout-btn{
+  font-size:11px;padding:4px 9px;border-radius:6px;border:1px solid var(--border);
+  background:var(--bg3);color:var(--text2);cursor:pointer;
+  white-space:nowrap;flex-shrink:0;
+}
+.logout-btn:hover{background:var(--border)}
+
+/* ===== TICKER — FIX4 draggable ===== */
+#ticker-wrap{
+  position:fixed;top:var(--header-h);left:0;right:0;z-index:99;
+  height:var(--ticker-h);background:var(--bg2);
+  border-bottom:1px solid var(--border);
+  overflow:hidden;cursor:grab;user-select:none;
+}
+#ticker-wrap.dragging{cursor:grabbing}
+.ticker-track{display:flex;align-items:center;height:100%;width:max-content}
+.ticker-item{
+  display:flex;align-items:center;gap:6px;
+  padding:0 16px;border-right:1px solid var(--border);
+  white-space:nowrap;height:100%;flex-shrink:0;
+}
+.ticker-item.night{background:#f5f0ff}
+.ticker-night-tag{font-size:9px;font-weight:700;color:var(--purple);background:#ede4ff;border-radius:3px;padding:1px 4px}
+.ticker-name{font-size:11px;color:var(--text2)}
+.ticker-price{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:var(--text)}
+.ticker-chg{font-family:'IBM Plex Mono',monospace;font-size:11px}
+.up{color:var(--up)}.down{color:var(--down)}.flat{color:var(--flat)}
+
+/* ===== LAYOUT ===== */
+.main-wrap{padding-top:calc(var(--header-h) + var(--ticker-h));min-height:100vh}
+.layout{display:flex;flex-direction:column}
+
+/* ===== PANELS ===== */
+.panel{background:var(--bg2);border-radius:12px;border:1px solid var(--border);overflow:hidden}
+.panel-hd{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;border-bottom:1px solid var(--border);
+  font-size:12px;font-weight:700;color:var(--text);
+}
+.panel-hd .right{display:flex;gap:6px;align-items:center}
+.small-btn{
+  font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--border);
+  background:var(--bg3);color:var(--text2);cursor:pointer;
+  transition:background .15s;white-space:nowrap;
+}
+.small-btn:hover{background:var(--border)}
+.small-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* ===== WATCHLIST ===== */
+#left-col{padding:8px;display:flex;flex-direction:column;gap:8px}
+.search-wrap{
+  display:flex;align-items:center;gap:8px;
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:10px;padding:8px 12px;
+}
+.search-wrap input{flex:1;border:none;background:transparent;font-size:13px;color:var(--text);outline:none;font-family:'Noto Sans TC',sans-serif}
+.search-wrap input::placeholder{color:var(--text3)}
+.group-hd{font-size:11px;font-weight:700;color:var(--text3);padding:6px 4px 4px;letter-spacing:.5px}
+.stock-row{
+  display:flex;align-items:center;padding:8px 10px;border-radius:10px;
+  cursor:pointer;transition:background .12s;gap:8px;border:1px solid transparent;
+}
+.stock-row:hover,.stock-row.active{background:var(--bg3);border-color:var(--border)}
+.stock-row.active{border-color:var(--accent);background:#eef3fd}
+.stock-left{flex:1;min-width:0}
+.stock-code{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600}
+.stock-name{font-size:11px;color:var(--text3);margin-top:1px}
+.stock-tags{display:flex;gap:3px;margin-top:3px;flex-wrap:wrap}
+.tag{font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;font-family:'IBM Plex Mono',monospace;line-height:1.5}
+.tag.ext-buy{background:#fef2f2;color:var(--up)}
+.tag.ext-sell{background:#f0faf5;color:var(--down)}
+.tag.inv-buy{background:#fff5f5;color:#e05252}
+.tag.inv-sell{background:#f0fdf5;color:#2d9c6b}
+.tag.same{background:#ebf4ff;color:var(--accent)}
+.tag.div{background:#fff7ed;color:#c05c0c}
+.tag.whale{background:#f5f0ff;color:var(--purple)}
+.stock-right{text-align:right;flex-shrink:0}
+.stock-price{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600}
+.stock-pct{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;padding:2px 5px;border-radius:4px;margin-top:2px;display:inline-block}
+.stock-pct.up{background:var(--up-bg);color:var(--up)}
+.stock-pct.down{background:var(--down-bg);color:var(--down)}
+.stock-pct.flat{background:var(--bg3);color:var(--flat)}
+
+/* ===== MIDDLE ===== */
+#mid-col{padding:8px;display:flex;flex-direction:column;gap:8px}
+.stock-title-wrap{background:var(--bg2);border-radius:12px;border:1px solid var(--border);padding:12px 14px}
+.stock-title-row{display:flex;justify-content:space-between;align-items:flex-start}
+.stock-title-code{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:700}
+.stock-title-name{font-size:13px;color:var(--text2);margin-top:2px}
+.stock-title-price{font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:700;text-align:right}
+.stock-title-chg{font-size:13px;font-family:'IBM Plex Mono',monospace;text-align:right;margin-top:2px}
+.tf-wrap{display:flex;gap:0;overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none}
+.tf-wrap::-webkit-scrollbar{display:none}
+.tf-group{display:flex;gap:0;background:var(--bg3);border-radius:8px;padding:2px;flex-shrink:0}
+.tf-group+.tf-group{margin-left:6px}
+.tf-btn{
+  font-size:11px;padding:4px 9px;border-radius:6px;border:none;
+  background:transparent;color:var(--text2);cursor:pointer;
+  font-family:'IBM Plex Mono',monospace;font-weight:500;
+  transition:background .12s,color .12s;white-space:nowrap;
+}
+.tf-btn.active,.tf-btn:hover{background:var(--bg2);color:var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.kline-placeholder{
+  background:var(--bg3);border:2px dashed var(--border);border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  height:200px;color:var(--text3);font-size:12px;text-align:center;line-height:1.6;
+}
+.ohlc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border-radius:8px;overflow:hidden}
+.ohlc-cell{background:var(--bg2);padding:10px 8px;text-align:center}
+.ohlc-label{font-size:10px;color:var(--text3);margin-bottom:3px}
+.ohlc-val{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600}
+
+/* ===== TABS ===== */
+.tab-bar{display:flex;overflow-x:auto;border-bottom:2px solid var(--border);-ms-overflow-style:none;scrollbar-width:none;background:var(--bg2)}
+.tab-bar::-webkit-scrollbar{display:none}
+.tab-btn{
+  font-size:12px;padding:10px 14px;border:none;background:transparent;
+  color:var(--text3);cursor:pointer;white-space:nowrap;flex-shrink:0;
+  border-bottom:2px solid transparent;margin-bottom:-2px;transition:color .15s;
+}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:700}
+
+/* ===== CHIP ===== */
+.chip-table{width:100%;border-collapse:collapse;font-size:12px}
+.chip-table th{background:var(--bg3);color:var(--text3);padding:6px 8px;font-weight:700;font-size:10px;letter-spacing:.3px;border-bottom:1px solid var(--border)}
+.chip-table td{padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.chip-table tr:last-child td{border-bottom:none}
+.chip-name{font-weight:700;font-size:12px}
+.chip-sub{font-size:10px;color:var(--text3);margin-top:2px;display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+.chip-num{font-family:'IBM Plex Mono',monospace;font-size:12px}
+.expand-btn{
+  width:28px;height:28px;border-radius:6px;border:1px solid var(--border);
+  background:var(--bg3);cursor:pointer;display:flex;align-items:center;justify-content:center;
+  color:var(--text3);transition:background .15s,color .15s;flex-shrink:0;
+}
+.expand-btn svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.expand-btn:hover{background:var(--border)}
+.expand-btn.open{color:var(--accent);background:#ebf4ff;border-color:#c7daf8}
+/* FIX6: collapsible chart */
+.chart-expand{display:none;padding:10px 0 4px;border-top:1px solid var(--border);margin-top:8px}
+.chart-expand.open{display:block}
+.placeholder-chart{
+  background:var(--bg3);border-radius:8px;height:100px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;color:var(--text3);border:1px dashed var(--border);
+}
+.bar-chart-ph{height:120px}
+.dist-bar-bg{background:var(--border);border-radius:3px;height:6px;overflow:hidden}
+.dist-bar-fill{height:100%;border-radius:3px;background:var(--accent)}
+.week-btns{display:flex;gap:4px;overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none;padding-bottom:2px}
+.week-btns::-webkit-scrollbar{display:none}
+.week-btn{flex-shrink:0}
+
+/* EPS */
+.eps-bars{display:flex;align-items:flex-end;gap:4px;height:80px;margin:8px 0}
+.eps-bar{flex:1;border-radius:3px 3px 0 0;cursor:pointer;transition:opacity .15s}
+.eps-bar:hover{opacity:.75}
+.eps-nums{display:flex;gap:4px}
+.eps-num{flex:1;text-align:center;font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--text3);line-height:1.4}
+
+/* fin */
+.fin-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fin-card{background:var(--bg3);border-radius:8px;padding:10px 12px}
+.fin-card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.fin-label{font-size:11px;color:var(--text2);font-weight:700}
+.fin-val{font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:700}
+.fin-unit{font-size:10px;color:var(--text3)}
+.help-icon{font-size:11px;color:var(--text3);cursor:pointer;border:none;background:none;padding:0;line-height:1}
+
+/* ===== BASIC INFO ===== */
+.info-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+.info-item{background:var(--bg3);border-radius:8px;padding:9px 11px}
+.info-item-label{font-size:10px;color:var(--text3);margin-bottom:3px}
+.info-item-val{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600}
+/* All tab-content get bottom padding on mobile so nav bar doesn't cover */
+.tab-content{display:none;padding:12px;padding-bottom:80px}
+.tab-content.active{display:block}
+
+/* ===== RIGHT ===== */
+#right-col{padding:8px;display:flex;flex-direction:column;gap:8px}
+.analyst-bar{height:8px;border-radius:4px;overflow:hidden;display:flex;margin:8px 0}
+.analyst-bar .buy-seg{background:#d42b2b}
+.analyst-bar .hold-seg{background:#f0a500}
+.analyst-bar .sell-seg{background:#1a9e5c}
+.rating-tag{font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px}
+.rating-tag.strong-buy{background:#fef2f2;color:var(--up)}
+.rating-tag.buy{background:#fff5f5;color:#e05252}
+.rating-tag.hold{background:#fff8e1;color:#c08000}
+.rating-tag.sell{background:#f0faf5;color:var(--down)}
+.analyst-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px}
+.analyst-row:last-child{border-bottom:none}
+.disclaimer{font-size:10px;color:var(--text3);padding:8px 0;border-top:1px solid var(--border);margin-top:4px}
+.news-row{padding:9px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:opacity .12s}
+.news-row:last-child{border-bottom:none}
+.news-row:hover{opacity:.7}
+.news-meta{font-size:10px;color:var(--text3);margin-bottom:3px;display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.news-src-tag{font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:var(--bg3);color:var(--text3)}
+.news-title{font-size:12px;color:var(--text);line-height:1.5}
+.mops-row{padding:8px 0;border-bottom:1px solid var(--border);font-size:12px}
+.mops-row:last-child{border-bottom:none}
+.mops-meta{font-size:10px;color:var(--text3);margin-bottom:2px;display:flex;gap:6px}
+.mops-title{color:var(--text);line-height:1.5}
+
+/* ===== MODALS ===== */
+.modal-overlay{
+  position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.45);
+  display:none;align-items:flex-end;justify-content:center;
+  backdrop-filter:blur(2px);
+}
+.modal-overlay.show{display:flex}
+.modal-box{
+  background:var(--bg2);border-radius:16px 16px 0 0;
+  width:100%;max-height:85vh;overflow-y:auto;
+  padding:16px;animation:slideUp .22s ease;
+}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.modal-title{font-size:15px;font-weight:700}
+.modal-close{font-size:20px;border:none;background:none;cursor:pointer;color:var(--text3);padding:0 2px;line-height:1}
+.help-item{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.help-item:last-child{border-bottom:none}
+.help-tag{flex-shrink:0;min-width:44px;text-align:center}
+.help-desc{font-size:12px;color:var(--text2);line-height:1.6}
+.notif-item{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--border)}
+.notif-item:last-child{border-bottom:none}
+.notif-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.notif-content .notif-title{font-size:12px;font-weight:700}
+.notif-content .notif-time{font-size:10px;color:var(--text3);margin-top:2px}
+
+/* calendar */
+.cal-section-hd{font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.5px;padding:10px 0 5px}
+.cal-event-row{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)}
+.cal-event-row:last-of-type{border-bottom:none}
+.cal-date-badge{
+  flex-shrink:0;min-width:52px;padding:4px 6px;border-radius:6px;
+  text-align:center;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;line-height:1.4;
+}
+.cal-date-badge.holiday{background:#fff7ed;color:#c05c0c}
+.cal-date-badge.event{background:#ebf4ff;color:var(--accent)}
+.cal-date-badge.warning{background:#fef2f2;color:var(--up)}
+.cal-event-title{font-size:12px;font-weight:700;color:var(--text)}
+.cal-event-desc{font-size:11px;color:var(--text3);margin-top:2px;line-height:1.5}
+
+/* tp */
+.tp-bar-wrap{display:flex;align-items:center;gap:8px;margin:8px 0}
+.tp-bar-track{flex:1;height:8px;background:var(--bg3);border-radius:4px;position:relative}
+.tp-bar-range{position:absolute;height:100%;background:linear-gradient(90deg,var(--down),var(--up));border-radius:4px}
+.tp-marker{position:absolute;top:-4px;width:2px;height:16px;border-radius:1px;background:var(--accent);transform:translateX(-50%)}
+.tp-label{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2);white-space:nowrap}
+.scroll-x{overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none}
+.scroll-x::-webkit-scrollbar{display:none}
+
+/* news modal */
+.news-modal-meta{font-size:11px;color:var(--text3);margin-bottom:10px}
+.news-modal-body{font-size:13px;line-height:1.8;color:var(--text2)}
+
+/* fin help modal */
+#fin-help-modal .modal-box{border-radius:16px;max-width:400px;margin:20px;width:calc(100% - 40px)}
+#fin-help-modal .modal-overlay{align-items:center}
+
+/* mobile nav */
+.mobile-nav{
+  position:fixed;bottom:0;left:0;right:0;z-index:98;
+  background:var(--bg2);border-top:1px solid var(--border);
+  display:flex;padding:6px 0;
+  padding-bottom:calc(6px + env(safe-area-inset-bottom,0px));
+}
+.mobile-nav-btn{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
+  border:none;background:none;cursor:pointer;padding:4px 0;
+  color:var(--text3);font-size:10px;transition:color .15s;
+}
+.mobile-nav-btn.active{color:var(--accent)}
+.mobile-nav-btn svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+@media(min-width:900px){.mobile-nav{display:none}}
+
+/* desktop layout */
+@media(min-width:640px){
+  :root{--header-h:60px;--ticker-h:44px}
+  .kline-placeholder{height:260px}
+}
+@media(min-width:900px){
+  .header-inner{overflow-x:visible}
+  .header-spacer{flex:1}
+  .layout{flex-direction:row;align-items:flex-start}
+  #left-col{width:280px;flex-shrink:0;height:calc(100vh - var(--header-h) - var(--ticker-h));overflow-y:auto;position:sticky;top:calc(var(--header-h) + var(--ticker-h));padding:10px 8px}
+  #left-col::-webkit-scrollbar{width:4px}
+  #left-col::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+  #mid-col{flex:1;min-width:0;padding:10px 8px}
+  #right-col{width:280px;flex-shrink:0;padding:10px 8px}
+  .kline-placeholder{height:300px}
+  .tab-content{padding-bottom:16px}
+  .modal-overlay{align-items:center}
+  .modal-box{border-radius:16px;max-width:520px;max-height:80vh}
+}
+@media(min-width:1200px){
+  #left-col{width:300px}#right-col{width:300px}
+}
+</style>
+</head>
+<body>
+
+<!-- ===== HEADER ===== -->
+<header id="header">
+  <div class="header-inner">
+    <div class="logo">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+      股票儀表板
+    </div>
+    <!-- FIX1: calendar button -->
+    <button class="cal-btn" onclick="openModal('cal-modal')">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      市場日曆
+    </button>
+    <span class="holiday-badge" id="holiday-badge">🎌 今日休市</span>
+    <!-- desktop spacer pushes clock+icons to right -->
+    <span class="header-spacer"></span>
+    <div id="clock" class="mono">--:--:--<br>----/--/--</div>
+    <!-- FIX2: SVG icon buttons -->
+    <button class="icon-btn" onclick="openModal('help-modal')" title="訊號說明">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </button>
+    <button class="icon-btn" onclick="openModal('notif-modal')" title="通知">
+      <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <span class="notif-dot"></span>
+    </button>
+    <div class="avatar" title="王小明">王</div>
+    <button class="logout-btn">登出</button>
+  </div>
+</header>
+
+<!-- ===== TICKER ===== -->
+<div id="ticker-wrap">
+  <div class="ticker-track" id="ticker-track"></div>
+</div>
+
+<!-- ===== MAIN ===== -->
+<div class="main-wrap">
+  <div class="layout">
+
+    <!-- LEFT -->
+    <div id="left-col">
+      <div class="search-wrap">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8a909c" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="search-input" placeholder="搜尋代號或名稱..." oninput="filterStocks()">
+      </div>
+      <div id="watchlist-area"></div>
+    </div>
+
+    <!-- MIDDLE -->
+    <div id="mid-col">
+      <div class="stock-title-wrap">
+        <div class="stock-title-row">
+          <div>
+            <div class="stock-title-code mono up" id="detail-code">2330</div>
+            <div class="stock-title-name" id="detail-name">台積電</div>
+          </div>
+          <div>
+            <div class="stock-title-price mono up" id="detail-price">980</div>
+            <div class="stock-title-chg mono up" id="detail-chg">+12 (+1.24%)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div style="padding:8px 10px">
+          <div class="tf-wrap">
+            <div class="tf-group">
+              <button class="tf-btn active" onclick="setTF(this)">1分</button>
+              <button class="tf-btn" onclick="setTF(this)">3分</button>
+              <button class="tf-btn" onclick="setTF(this)">5分</button>
+              <button class="tf-btn" onclick="setTF(this)">15分</button>
+              <button class="tf-btn" onclick="setTF(this)">30分</button>
+              <button class="tf-btn" onclick="setTF(this)">60分</button>
+            </div>
+            <div class="tf-group">
+              <button class="tf-btn" onclick="setTF(this)">日</button>
+              <button class="tf-btn" onclick="setTF(this)">週</button>
+              <button class="tf-btn" onclick="setTF(this)">月</button>
+            </div>
+          </div>
+        </div>
+        <div style="padding:0 10px 10px">
+          <div class="kline-placeholder"><div>📈 K 線圖<br><span style="font-size:10px">第二階段接入 TradingView</span></div></div>
+        </div>
+        <div class="ohlc-grid">
+          <div class="ohlc-cell"><div class="ohlc-label">開盤</div><div class="ohlc-val mono">968</div></div>
+          <div class="ohlc-cell"><div class="ohlc-label">最高</div><div class="ohlc-val mono up">985</div></div>
+          <div class="ohlc-cell"><div class="ohlc-label">最低</div><div class="ohlc-val mono down">962</div></div>
+          <div class="ohlc-cell"><div class="ohlc-label">成交量</div><div class="ohlc-val mono">42,813</div></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="tab-bar" id="data-tabs">
+          <button class="tab-btn active" onclick="switchTab('basic',this)">基本資料</button>
+          <button class="tab-btn" onclick="switchTab('chip',this)">籌碼面</button>
+          <button class="tab-btn" onclick="switchTab('finance',this)">財務面</button>
+          <button class="tab-btn" onclick="switchTab('tech',this)">技術面</button>
+          <button class="tab-btn" onclick="switchTab('custom',this)">自訂指標</button>
+        </div>
+
+        <!-- BASIC — FIX5 -->
+        <div class="tab-content active" id="tab-basic">
+          <div class="info-grid">
+            <div class="info-item"><div class="info-item-label">本益比</div><div class="info-item-val mono">22.4x</div></div>
+            <div class="info-item"><div class="info-item-label">股價淨值比</div><div class="info-item-val mono">7.8x</div></div>
+            <div class="info-item"><div class="info-item-label">殖利率</div><div class="info-item-val mono up">2.15%</div></div>
+            <div class="info-item"><div class="info-item-label">市值</div><div class="info-item-val mono">25.4兆</div></div>
+            <div class="info-item"><div class="info-item-label">52週高</div><div class="info-item-val mono up">1,080</div></div>
+            <div class="info-item"><div class="info-item-label">52週低</div><div class="info-item-val mono down">680</div></div>
+            <div class="info-item"><div class="info-item-label">產業別</div><div class="info-item-val" style="font-size:12px">半導體</div></div>
+            <div class="info-item"><div class="info-item-label">股本</div><div class="info-item-val mono">2,593億</div></div>
+            <div class="info-item"><div class="info-item-label">流通股數</div><div class="info-item-val mono">259.3億</div></div>
+            <div class="info-item"><div class="info-item-label">外資持股%</div><div class="info-item-val mono">74.8%</div></div>
+            <div class="info-item"><div class="info-item-label">外資上限</div><div class="info-item-val mono">100%</div></div>
+            <div class="info-item" style="background:#fef2f2">
+              <div class="info-item-label" style="color:#b44">外資本週增持</div>
+              <div class="info-item-val mono up">+0.32%</div>
+              <div style="font-size:9px;color:#b44;margin-top:2px">≈ +83,040張</div>
+            </div>
+            <div class="info-item" style="background:#fef2f2">
+              <div class="info-item-label" style="color:#b44">投信本週增持</div>
+              <div class="info-item-val mono up">+0.08%</div>
+              <div style="font-size:9px;color:#b44;margin-top:2px">≈ +20,744張</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CHIP — FIX6 -->
+        <div class="tab-content" id="tab-chip">
+          <div class="panel-hd" style="margin:-12px -12px 10px">
+            <span>三大法人買賣超</span>
+            <div class="right">
+              <button class="expand-btn" id="btn-chip1" onclick="toggleExpand('chip-chart1','btn-chip1')" title="圖表">
+                <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              </button>
+            </div>
+          </div>
+          <table class="chip-table">
+            <thead><tr><th style="text-align:left">法人</th><th>今日</th><th>昨日</th><th>近5日</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><div class="chip-name">外資</div><div class="chip-sub"><span class="tag ext-buy">外+5</span><span>持股74.8%</span></div></td>
+                <td><div class="chip-num up">+18,420</div></td>
+                <td><div class="chip-num up">+9,200</div></td>
+                <td><div class="chip-num up">+52,100</div></td>
+              </tr>
+              <tr>
+                <td><div class="chip-name">投信</div><div class="chip-sub"><span class="tag inv-buy">投+3</span></div></td>
+                <td><div class="chip-num up">+3,150</div></td>
+                <td><div class="chip-num up">+2,800</div></td>
+                <td><div class="chip-num up">+8,420</div></td>
+              </tr>
+              <tr>
+                <td><div class="chip-name">自營商</div></td>
+                <td><div class="chip-num down">-1,240</div></td>
+                <td><div class="chip-num down">-880</div></td>
+                <td><div class="chip-num down">-3,200</div></td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="chart-expand" id="chip-chart1">
+            <div class="placeholder-chart bar-chart-ph">📊 三大法人近20日買賣超走勢（第二階段接入）</div>
+          </div>
+
+          <div style="height:12px"></div>
+          <div class="panel-hd" style="margin:0 -12px 10px">
+            <span>土洋同向訊號</span>
+            <button class="expand-btn" id="btn-chip2" onclick="toggleExpand('chip-chart2','btn-chip2')">
+              <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </button>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:8px;background:#ebf4ff;border-radius:8px;border:1px solid #c7daf8">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a5fd4" stroke-width="2.2" stroke-linecap="round"><polyline points="18 15 12 9 6 15"/></svg>
+            <div>
+              <div style="font-size:13px;font-weight:700;color:var(--accent)">外資 + 投信 同步買超</div>
+              <div style="font-size:11px;color:var(--text3)">外資連買5日，投信連買3日</div>
+            </div>
+          </div>
+          <div class="chart-expand" id="chip-chart2">
+            <div class="placeholder-chart bar-chart-ph">📊 土洋同向歷史訊號圖（第二階段接入）</div>
+          </div>
+
+          <div style="height:12px"></div>
+          <div class="panel-hd" style="margin:0 -12px 10px">
+            <span>集保大戶持股分布</span>
+            <div class="right">
+              <span style="font-size:10px;color:var(--text3)">統計週：4/6</span>
+              <button class="expand-btn" id="btn-chip3" onclick="toggleExpand('chip-chart3','btn-chip3')">
+                <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="week-btns" style="margin-bottom:8px">
+            <button class="small-btn week-btn active" onclick="weekSwitch(this)">本週</button>
+            <button class="small-btn week-btn" onclick="weekSwitch(this)">上週</button>
+            <button class="small-btn week-btn" onclick="weekSwitch(this)">3週前</button>
+            <button class="small-btn week-btn" onclick="weekSwitch(this)">4週前</button>
+            <button class="small-btn week-btn" onclick="weekSwitch(this)">8週前</button>
+            <button class="small-btn week-btn" onclick="weekSwitch(this)">12週前</button>
+          </div>
+          <div class="scroll-x">
+            <table class="chip-table" style="min-width:360px">
+              <thead><tr><th style="text-align:left">級距</th><th>人數</th><th>持股%</th><th>週變化</th><th>佔比</th></tr></thead>
+              <tbody>
+                <tr><td style="font-size:11px">400張以上</td><td class="chip-num">824</td><td class="chip-num">42.3%</td><td class="chip-num up">+0.8%</td><td><div class="dist-bar-bg" style="width:80px"><div class="dist-bar-fill" style="width:42.3%"></div></div></td></tr>
+                <tr><td style="font-size:11px">200-400張</td><td class="chip-num">1,256</td><td class="chip-num">18.7%</td><td class="chip-num down">-0.2%</td><td><div class="dist-bar-bg" style="width:80px"><div class="dist-bar-fill" style="width:18.7%"></div></div></td></tr>
+                <tr><td style="font-size:11px">100-200張</td><td class="chip-num">2,841</td><td class="chip-num">12.4%</td><td class="chip-num flat">±0.0%</td><td><div class="dist-bar-bg" style="width:80px"><div class="dist-bar-fill" style="width:12.4%"></div></div></td></tr>
+                <tr><td style="font-size:11px">1-100張</td><td class="chip-num">186,432</td><td class="chip-num">26.6%</td><td class="chip-num down">-0.6%</td><td><div class="dist-bar-bg" style="width:80px"><div class="dist-bar-fill" style="width:26.6%"></div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="chart-expand" id="chip-chart3">
+            <div class="placeholder-chart bar-chart-ph">📈 大戶持股比例12週趨勢（第二階段接入）</div>
+          </div>
+        </div>
+
+        <!-- FINANCE — FIX6 -->
+        <div class="tab-content" id="tab-finance">
+          <div class="panel-hd" style="margin:-12px -12px 10px">
+            <span>每股盈餘 EPS</span>
+            <div class="right">
+              <button class="small-btn active" id="eps-q-btn" onclick="switchEPS('q')">單季</button>
+              <button class="small-btn" id="eps-cum-btn" onclick="switchEPS('cum')">累計</button>
+              <button class="expand-btn" id="btn-eps" onclick="toggleExpand('eps-chart','btn-eps')">
+                <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="eps-bars" id="eps-bars"></div>
+          <div class="eps-nums" id="eps-nums"></div>
+          <div class="chart-expand" id="eps-chart">
+            <div class="placeholder-chart bar-chart-ph">📊 EPS 近12季大圖（第二階段接入）</div>
+          </div>
+
+          <div style="height:12px"></div>
+          <div class="panel-hd" style="margin:0 -12px 10px"><span>法人 EPS 預測</span></div>
+          <table class="chip-table">
+            <thead><tr><th style="text-align:left">券商</th><th>FY24E</th><th>FY25E</th><th>評等</th></tr></thead>
+            <tbody>
+              <tr><td style="font-size:12px">摩根士丹利</td><td class="chip-num">39.2</td><td class="chip-num">52.8</td><td><span class="rating-tag strong-buy">強力買進</span></td></tr>
+              <tr><td style="font-size:12px">高盛</td><td class="chip-num">38.6</td><td class="chip-num">51.4</td><td><span class="rating-tag buy">買進</span></td></tr>
+              <tr><td style="font-size:12px">瑞銀</td><td class="chip-num">40.1</td><td class="chip-num">53.2</td><td><span class="rating-tag strong-buy">強力買進</span></td></tr>
+            </tbody>
+          </table>
+          <div class="disclaimer">來源：Bloomberg 彙整，僅供參考。</div>
+
+          <div style="height:8px"></div>
+          <div class="panel-hd" style="margin:0 -12px 10px"><span>關鍵財務指標</span></div>
+          <div class="fin-grid">
+            <div class="fin-card">
+              <div class="fin-card-hd"><span class="fin-label">毛利率</span><button class="help-icon" onclick="showFinHelp('毛利率','（營業收入－銷貨成本）÷ 營業收入，反映本業生產獲利能力。台積電毛利率維持55%以上為業界頂尖水準。')">❓</button></div>
+              <div class="fin-val mono up">55.2%</div><div class="fin-unit">近4季均值</div>
+            </div>
+            <div class="fin-card">
+              <div class="fin-card-hd"><span class="fin-label">營益率</span><button class="help-icon" onclick="showFinHelp('營益率','（營業收入－所有營業費用）÷ 營業收入，反映扣除費用後的本業獲利，又稱 EBIT 率。')">❓</button></div>
+              <div class="fin-val mono up">42.0%</div><div class="fin-unit">近4季均值</div>
+            </div>
+            <div class="fin-card">
+              <div class="fin-card-hd"><span class="fin-label">淨利率</span><button class="help-icon" onclick="showFinHelp('淨利率','稅後純益 ÷ 營業收入，含業外損益，為最終股東實際獲利比例。')">❓</button></div>
+              <div class="fin-val mono up">39.1%</div><div class="fin-unit">近4季均值</div>
+            </div>
+            <div class="fin-card">
+              <div class="fin-card-hd"><span class="fin-label">ROE</span><button class="help-icon" onclick="showFinHelp('ROE（股東權益報酬率）','稅後純益 ÷ 平均股東權益，衡量公司用股東的錢賺多少錢，越高代表資金運用效率越好。')">❓</button></div>
+              <div class="fin-val mono up">28.4%</div><div class="fin-unit">近4季均值</div>
+            </div>
+            <div class="fin-card">
+              <div class="fin-card-hd"><span class="fin-label">ROA</span><button class="help-icon" onclick="showFinHelp('ROA（總資產報酬率）','稅後純益 ÷ 平均總資產，衡量公司用所有資產賺多少錢，排除財務槓桿影響。')">❓</button></div>
+              <div class="fin-val mono up">18.2%</div><div class="fin-unit">近4季均值</div>
+            </div>
+            <div class="fin-card">
+              <div class="fin-card-hd"><span class="fin-label">負債比</span><button class="help-icon" onclick="showFinHelp('負債比率','總負債 ÷ 總資產，越低代表財務結構越穩健，一般低於50%為安全範圍。')">❓</button></div>
+              <div class="fin-val mono">32.6%</div><div class="fin-unit">近4季均值</div>
+            </div>
+          </div>
+
+          <div style="height:8px"></div>
+          <div class="panel-hd" style="margin:0 -12px 8px">
+            <span>月營收</span>
+            <button class="expand-btn" id="btn-rev" onclick="toggleExpand('rev-chart','btn-rev')">
+              <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </button>
+          </div>
+          <div class="placeholder-chart">2025/03 月營收 NT$2,693億（YoY +41.6%）</div>
+          <div class="chart-expand" id="rev-chart">
+            <div class="placeholder-chart bar-chart-ph">📊 月營收走勢圖（第二階段接入）</div>
+          </div>
+        </div>
+
+        <div class="tab-content" id="tab-tech">
+          <div style="padding:20px 0;text-align:center;color:var(--text3);font-size:13px">
+            📊 技術面指標 — 第二階段接入<br><span style="font-size:11px">MA / MACD / RSI / KD / 布林通道</span>
+          </div>
+        </div>
+        <div class="tab-content" id="tab-custom">
+          <div style="padding:20px 0;text-align:center;color:var(--text3);font-size:13px">⚙️ 自訂指標 — 第二階段開放</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div id="right-col">
+      <div class="panel">
+        <div class="panel-hd">券商評等</div>
+        <div style="padding:12px">
+          <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px">目標價區間</div>
+          <div class="tp-bar-wrap">
+            <span class="tp-label">800</span>
+            <div class="tp-bar-track" style="flex:1;height:8px;background:var(--bg3);border-radius:4px;position:relative">
+              <div class="tp-bar-range" style="left:20%;width:60%;position:absolute;height:100%;background:linear-gradient(90deg,var(--down),var(--up));border-radius:4px"></div>
+              <div class="tp-marker" style="left:55%;position:absolute;top:-4px;width:2px;height:16px;border-radius:1px;background:var(--accent);transform:translateX(-50%)"></div>
+            </div>
+            <span class="tp-label">1,200</span>
+          </div>
+          <div style="text-align:center;font-size:10px;color:var(--text3);margin-bottom:10px">目標價中位數：1,050｜現價：980</div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+            <span style="font-size:11px;color:var(--text3)">共識評等</span>
+            <span style="font-size:11px;font-weight:700;color:var(--up)">強力買進</span>
+          </div>
+          <div class="analyst-bar">
+            <div class="buy-seg" style="width:72%"></div>
+            <div class="hold-seg" style="width:20%"></div>
+            <div class="sell-seg" style="width:8%"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-bottom:10px">
+            <span>買進 72%</span><span>中立 20%</span><span>賣出 8%</span>
+          </div>
+          <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:6px">近期報告</div>
+          <div class="analyst-row">
+            <div><div style="font-size:12px;font-weight:700">摩根士丹利</div><div style="font-size:10px;color:var(--text3)">2025/06/12 · AI需求強勁</div></div>
+            <div style="text-align:right"><span class="rating-tag strong-buy">強力買進</span><div style="font-family:'IBM Plex Mono',monospace;font-size:12px;margin-top:3px">$1,150</div></div>
+          </div>
+          <div class="analyst-row">
+            <div><div style="font-size:12px;font-weight:700">高盛</div><div style="font-size:10px;color:var(--text3)">2025/06/10 · CoWoS擴張</div></div>
+            <div style="text-align:right"><span class="rating-tag buy">買進</span><div style="font-family:'IBM Plex Mono',monospace;font-size:12px;margin-top:3px">$1,050</div></div>
+          </div>
+          <div class="analyst-row">
+            <div><div style="font-size:12px;font-weight:700">瑞銀</div><div style="font-size:10px;color:var(--text3)">2025/06/08 · 先進封裝超預期</div></div>
+            <div style="text-align:right"><span class="rating-tag strong-buy">強力買進</span><div style="font-family:'IBM Plex Mono',monospace;font-size:12px;margin-top:3px">$1,180</div></div>
+          </div>
+          <div class="disclaimer">本資訊由第三方提供，僅供參考，不構成投資建議。</div>
+        </div>
+      </div>
+
+      <!-- FIX7: all Chinese news -->
+      <div class="panel">
+        <div class="panel-hd">即時新聞</div>
+        <div style="padding:0 12px">
+          <div class="tab-bar" id="news-tabs">
+            <button class="tab-btn active" onclick="switchNewsTab('domestic',this)">國內</button>
+            <button class="tab-btn" onclick="switchNewsTab('intl',this)">國際</button>
+          </div>
+        </div>
+        <div style="padding:0 12px 12px" id="news-list"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-hd">公開資訊觀測站</div>
+        <div style="padding:0 12px">
+          <div class="tab-bar" id="mops-tabs">
+            <button class="tab-btn active" onclick="switchMopsTab('major',this)">重大訊息</button>
+            <button class="tab-btn" onclick="switchMopsTab('analyst2',this)">法說會</button>
+            <button class="tab-btn" onclick="switchMopsTab('cb',this)">可轉債</button>
+            <button class="tab-btn" onclick="switchMopsTab('buyback',this)">庫藏股</button>
+          </div>
+        </div>
+        <div style="padding:0 12px 12px" id="mops-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- mobile nav -->
+<nav class="mobile-nav">
+  <button class="mobile-nav-btn active" onclick="mobileNav('left-col',this)">
+    <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+    自選股
+  </button>
+  <button class="mobile-nav-btn" onclick="mobileNav('mid-col',this)">
+    <svg viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+    圖表
+  </button>
+  <button class="mobile-nav-btn" onclick="mobileNav('right-col',this)">
+    <svg viewBox="0 0 24 24"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>
+    資訊
+  </button>
+</nav>
+
+<!-- ===== MODALS ===== -->
+<div class="modal-overlay" id="help-modal" onclick="closeModalBg(event,'help-modal')">
+  <div class="modal-box">
+    <div class="modal-hd"><span class="modal-title">訊號說明</span><button class="modal-close" onclick="closeModal('help-modal')">✕</button></div>
+    <div class="help-item"><div class="help-tag"><span class="tag ext-buy">外+5</span></div><div class="help-desc"><strong>外資連買N日</strong><br>外資（含外資自營）連續買超天數，數字越大代表買盤持續性越強。</div></div>
+    <div class="help-item"><div class="help-tag"><span class="tag ext-sell">外-3</span></div><div class="help-desc"><strong>外資連賣N日</strong><br>外資連續賣超天數，綠色顯示。</div></div>
+    <div class="help-item"><div class="help-tag"><span class="tag inv-buy">投+3</span></div><div class="help-desc"><strong>投信連買N日</strong><br>國內投信法人連續買超天數，淡紅色。</div></div>
+    <div class="help-item"><div class="help-tag"><span class="tag inv-sell">投-2</span></div><div class="help-desc"><strong>投信連賣N日</strong><br>投信連續賣超天數，淡綠色。</div></div>
+    <div class="help-item"><div class="help-tag"><span class="tag same">同</span></div><div class="help-desc"><strong>土洋同向</strong><br>外資與投信同步買超或賣超，僅在兩者標籤都不顯示時才出現。</div></div>
+    <div class="help-item"><div class="help-tag"><span class="tag div">息5</span></div><div class="help-desc"><strong>除息倒數N天</strong><br>距離除息日剩餘交易日，橘色提醒。</div></div>
+    <div class="help-item"><div class="help-tag"><span class="tag whale">大</span></div><div class="help-desc"><strong>集保大戶異動警示</strong><br>集保400張以上大戶持股週增幅或減幅超過 ±1.5%，代表大戶籌碼出現明顯異動。</div></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="notif-modal" onclick="closeModalBg(event,'notif-modal')">
+  <div class="modal-box">
+    <div class="modal-hd"><span class="modal-title">最新通知</span><button class="modal-close" onclick="closeModal('notif-modal')">✕</button></div>
+    <div class="notif-item"><div class="notif-icon" style="background:#fef2f2">📈</div><div class="notif-content"><div class="notif-title">台積電 (2330) — 外資連買第5日</div><div class="notif-time">今日 09:32</div></div></div>
+    <div class="notif-item"><div class="notif-icon" style="background:#f0faf5">📉</div><div class="notif-content"><div class="notif-title">鴻海 (2317) — 投信連賣第6日</div><div class="notif-time">今日 10:05</div></div></div>
+    <div class="notif-item"><div class="notif-icon" style="background:#fff7ed">📅</div><div class="notif-content"><div class="notif-title">聯發科 (2454) — 除息倒數 12 天</div><div class="notif-time">昨日 18:00</div></div></div>
+    <div class="notif-item"><div class="notif-icon" style="background:#f5f0ff">🐋</div><div class="notif-content"><div class="notif-title">台積電 (2330) — 集保大戶本週增持 +1.8%</div><div class="notif-time">昨日 20:00</div></div></div>
+    <div class="notif-item"><div class="notif-icon" style="background:#ebf4ff">🤝</div><div class="notif-content"><div class="notif-title">聯發科 (2454) — 外資+投信 同步買超</div><div class="notif-time">昨日 14:20</div></div></div>
+  </div>
+</div>
+
+<!-- FIX1: Calendar modal -->
+<div class="modal-overlay" id="cal-modal" onclick="closeModalBg(event,'cal-modal')">
+  <div class="modal-box">
+    <div class="modal-hd"><span class="modal-title">📅 市場日曆</span><button class="modal-close" onclick="closeModal('cal-modal')">✕</button></div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:6px">台股、國際休市日 &amp; 重要財經事件</div>
+    <div class="cal-section-hd">📍 近期重點</div>
+    <div class="cal-event-row">
+      <div class="cal-date-badge holiday">4/4<br>休市</div>
+      <div class="cal-event-body"><div class="cal-event-title">🇹🇼 台股休市 — 清明節</div><div class="cal-event-desc">全日休市，台指期夜盤照常</div></div>
+    </div>
+    <div class="cal-event-row">
+      <div class="cal-date-badge event">4/10<br>21:30</div>
+      <div class="cal-event-body"><div class="cal-event-title">🇺🇸 美國 CPI（3月）公布</div><div class="cal-event-desc">預期 YoY +3.2%，核心 CPI +3.7%，聯準會重要參考指標</div></div>
+    </div>
+    <div class="cal-event-row">
+      <div class="cal-date-badge warning">4/30<br>凌晨</div>
+      <div class="cal-event-body"><div class="cal-event-title">🇺🇸 FOMC 利率決議</div><div class="cal-event-desc">市場預期維持5.25–5.50%，關注聲明措辭與降息時程暗示</div></div>
+    </div>
+    <div class="cal-event-row">
+      <div class="cal-date-badge event">5/1<br>休市</div>
+      <div class="cal-event-body"><div class="cal-event-title">🇯🇵 日本休市 — 勞動節</div><div class="cal-event-desc">東京市場全日休市</div></div>
+    </div>
+    <div class="cal-event-row">
+      <div class="cal-date-badge event">5/5<br>休市</div>
+      <div class="cal-event-body"><div class="cal-event-title">🇰🇷 韓國休市 — 兒童節</div><div class="cal-event-desc">韓國 KOSPI 全日休市</div></div>
+    </div>
+    <div class="cal-section-hd">📊 財報季</div>
+    <div class="cal-event-row">
+      <div class="cal-date-badge event">4/18</div>
+      <div class="cal-event-body"><div class="cal-event-title">台積電 (2330) 法說會</div><div class="cal-event-desc">Q1財報，盤後法說，關注AI需求與2025年展望</div></div>
+    </div>
+    <div class="cal-event-row">
+      <div class="cal-date-badge event">4/25</div>
+      <div class="cal-event-body"><div class="cal-event-title">聯發科 (2454) 法說會</div><div class="cal-event-desc">Q1財報，關注AI手機晶片出貨展望</div></div>
+    </div>
+    <div class="cal-event-row">
+      <div class="cal-date-badge event">4/30</div>
+      <div class="cal-event-body"><div class="cal-event-title">🇺🇸 Meta / Microsoft 財報</div><div class="cal-event-desc">美股財報季高峰，AI資本支出動向備受矚目</div></div>
+    </div>
+    <div class="cal-section-hd">🌏 國際總經</div>
+    <div class="cal-event-row">
+      <div class="cal-date-badge event">4/24<br>20:00</div>
+      <div class="cal-event-body"><div class="cal-event-title">🇪🇺 歐洲央行（ECB）利率決議</div><div class="cal-event-desc">預期降息25bp至3.75%，歐元走勢值得關注</div></div>
+    </div>
+    <div class="cal-event-row">
+      <div class="cal-date-badge warning">5/3<br>21:30</div>
+      <div class="cal-event-body"><div class="cal-event-title">🇺🇸 美國非農就業（4月）</div><div class="cal-event-desc">預期新增就業24萬，牽動聯準會降息時程判斷</div></div>
+    </div>
+    <div style="height:8px"></div>
+  </div>
+</div>
+
+<!-- News detail -->
+<div class="modal-overlay" id="news-modal" onclick="closeModalBg(event,'news-modal')" style="align-items:center">
+  <div class="modal-box" style="border-radius:16px;max-width:540px;margin:16px;width:calc(100% - 32px)">
+    <div class="modal-hd">
+      <span class="modal-title" id="news-modal-title" style="font-size:13px;line-height:1.5;max-width:90%"></span>
+      <button class="modal-close" onclick="closeModal('news-modal')">✕</button>
+    </div>
+    <div class="news-modal-meta" id="news-modal-meta"></div>
+    <div class="news-modal-body" id="news-modal-body"></div>
+  </div>
+</div>
+
+<!-- Fin help -->
+<div class="modal-overlay" id="fin-help-modal" onclick="closeModalBg(event,'fin-help-modal')" style="align-items:center">
+  <div class="modal-box" style="border-radius:16px;max-width:380px;margin:20px;width:calc(100% - 40px)">
+    <div class="modal-hd">
+      <span class="modal-title" id="fin-help-title"></span>
+      <button class="modal-close" onclick="closeModal('fin-help-modal')">✕</button>
+    </div>
+    <div style="font-size:13px;line-height:1.8;color:var(--text2)" id="fin-help-body"></div>
+  </div>
+</div>
+
+<script>
+/* ===== DATA ===== */
+const STOCKS={groups:[
+  {name:'台股核心',stocks:[
+    {code:'2330',name:'台積電',price:980,pct:1.24,ext:5,inv:3,div:null,whale:true},
+    {code:'2454',name:'聯發科',price:1285,pct:1.98,ext:4,inv:4,div:12,whale:false},
+    {code:'2317',name:'鴻海',price:178.5,pct:-0.56,ext:-2,inv:-6,div:null,whale:false},
+    {code:'2308',name:'台達電',price:375,pct:1.22,ext:1,inv:2,div:null,whale:false},
+    {code:'3008',name:'大立光',price:2280,pct:1.33,ext:1,inv:0,div:null,whale:false},
+  ]},
+  {name:'國際指數',stocks:[
+    {code:'N225',name:'日經 225',price:39580,pct:0.32,ext:0,inv:0,div:null,whale:false},
+    {code:'KOSPI',name:'韓 KOSPI',price:2712,pct:-0.15,ext:0,inv:0,div:null,whale:false},
+    {code:'HSI',name:'恒生指數',price:18320,pct:0.44,ext:0,inv:0,div:null,whale:false},
+    {code:'SPX',name:'S&P 500',price:5181,pct:0.27,ext:0,inv:0,div:null,whale:false},
+  ]},
+  {name:'美國科技',stocks:[
+    {code:'NVDA',name:'NVIDIA',price:878.5,pct:2.61,ext:3,inv:0,div:null,whale:false},
+    {code:'AAPL',name:'Apple',price:211.5,pct:0.86,ext:2,inv:0,div:null,whale:false},
+    {code:'MSFT',name:'Microsoft',price:415,pct:0.78,ext:2,inv:0,div:null,whale:false},
+    {code:'TSLA',name:'Tesla',price:248,pct:-2.05,ext:-1,inv:0,div:null,whale:false},
+  ]},
+  {name:'自訂',stocks:[
+    {code:'2382',name:'廣達',price:285,pct:0.71,ext:2,inv:1,div:null,whale:false},
+    {code:'006208',name:'富邦台50',price:112.3,pct:0.54,ext:0,inv:0,div:30,whale:false},
+  ]},
+]};
+
+const TICKER_DATA=[
+  {name:'台指期夜盤',price:'21,912',chg:'+0.31%',night:true},
+  {name:'台灣加權',price:'21,843',chg:'+0.57%'},
+  {name:'櫃買指數',price:'251.4',chg:'+0.43%'},
+  {name:'道　瓊',price:'39,142',chg:'-0.23%'},
+  {name:'S&P 500',price:'5,181',chg:'+0.27%'},
+  {name:'NASDAQ',price:'18,432',chg:'+0.54%'},
+  {name:'日經 225',price:'39,580',chg:'+0.32%'},
+  {name:'韓 KOSPI',price:'2,712',chg:'-0.15%'},
+  {name:'黃金現貨',price:'2,341',chg:'+0.68%'},
+  {name:'原油 WTI',price:'78.42',chg:'-0.44%'},
+  {name:'USD/TWD',price:'32.18',chg:'+0.12%'},
+];
+
+// FIX7: Chinese news, jin10 style for international
+const NEWS={
+  domestic:[
+    {src:'工商時報',cat:'台積電',time:'10:32',
+     title:'台積電法說會：2025年資本支出上調至360億美元，AI伺服器需求強勁超預期',
+     body:'台積電今日召開法人說明會，宣布上調2025年資本支出計畫至360億美元，較原先預估高出10%。董事長魏哲家表示，AI伺服器需求持續超出預期，CoWoS先進封裝訂單已排至2026年。台積電預估下一季營收將達220-228億美元，毛利率維持在53-55%區間。法人普遍給予正面評價，目標價中位數上調至1,050元。'},
+    {src:'經濟日報',cat:'法人',time:'09:15',
+     title:'外資連5日買超台股逾180億元，台積電、聯發科、廣達齊獲大量買進',
+     body:'根據集保結算所最新數據，外資昨日買超台股逾180億元，為近三個月最大單日買超金額。台積電、聯發科、廣達分別獲得外資大量買進，顯示國際機構法人對台灣科技股信心回升。投信同步加碼，三大法人合計買超逾200億元，推動大盤量能放大至3,200億元。'},
+    {src:'鉅亨網',cat:'半導體',time:'08:45',
+     title:'聯發科Dimensity 9400採台積電3nm，下半年量產搶攻Android旗艦市佔',
+     body:'聯發科與台積電合作開發的Dimensity 9400旗艦晶片，採用最新3奈米製程，預計下半年量產。業界人士指出，此一合作將強化聯發科在Android旗艦手機市場的競爭力，挑戰高通驍龍8系列的市佔率。市場預估聯發科2025年旗艦晶片出貨量有望突破1億顆。'},
+    {src:'MoneyDJ',cat:'大盤',time:'07:30',
+     title:'台股早盤站上21,800點，半導體族群引領上漲，成交量逾3,200億元',
+     body:'台股今日早盤表現強勢，加權指數突破21,800點整數關卡，電子類股引領上漲。台積電、聯發科、鴻海等權值股同步走強，帶動大盤量能放大至3,200億元。法人分析，在外資持續回流、AI需求題材加持下，台股短線仍有上攻動能。'},
+  ],
+  intl:[
+    {src:'金十數據',cat:'美股',time:'11:02',
+     title:'【快訊】NVIDIA發布新一代Blackwell Ultra AI晶片，效能提升30%，微軟、谷歌搶先預訂',
+     body:'輝達（NVIDIA）執行長黃仁勳在GTC年度大會上揭示新一代Blackwell Ultra架構，新晶片在AI訓練與推論效能較現行Blackwell提升30%，同時維持相同熱設計功耗。微軟、谷歌、亞馬遜等主要雲端業者已完成2025年大量訂單，合計預訂量創歷史新高。市場分析師預估此舉將推動輝達2026財年營收再成長逾40%，目標價多數上調至1,000美元以上。'},
+    {src:'金十數據',cat:'聯準會',time:'10:18',
+     title:'【美聯儲】FOMC紀要：多數官員傾向9月首度降息，通膨走向成關鍵變數',
+     body:'美國聯邦準備理事會（Fed）公布4月FOMC會議紀要，多數與會官員表示，若通膨持續朝2%目標下行，最快可在9月啟動降息。部分委員警告，近幾個月通膨降溫速度較預期緩慢，可能推遲首次降息時間。紀要公布後美股三大指數普遍上漲，10年期公債殖利率小幅回落至4.32%，市場對9月降息的預期機率升至62%。'},
+    {src:'路透社',cat:'蘋果',time:'09:40',
+     title:'蘋果Q2財報優於預期，中國iPhone銷售回溫，宣布史上最大1,100億美元回購計畫',
+     body:'蘋果公司（Apple）公布第二季財報，營收達949億美元，年增5%，優於市場預估的940億美元。中國市場iPhone銷售回溫為最大亮點，扭轉連續兩季下滑趨勢。公司同步宣布歷史上最大規模股票回購計畫，金額達1,100億美元。執行長庫克表示，Apple Intelligence人工智慧功能將於下季大幅擴展。'},
+    {src:'金十數據',cat:'特斯拉',time:'08:55',
+     title:'【特斯拉】Q1交付量38.6萬輛不及預期，馬斯克：平價Model 2年底前上市，售價低於25,000美元',
+     body:'特斯拉（Tesla）公布第一季交付量為38.6萬輛，低於華爾街預估的43萬輛，為近三年最大幅度不及預期，股價盤前跌逾4%。執行長馬斯克在財報電話會議上表示，平價版Model 2預計於2025年底前正式上市，起售價低於25,000美元，並將於德州超級工廠與墨西哥新廠同步生產，以應對中國比亞迪的競爭壓力。'},
+  ]
+};
+
+const MOPS={
+  major:[
+    {code:'2330',name:'台積電',time:'06/12 17:30',title:'公告2025年第二季業績展望及資本支出計劃'},
+    {code:'2454',name:'聯發科',time:'06/11 18:00',title:'宣布與台積電擴大3nm製程合作協議'},
+    {code:'2317',name:'鴻海',time:'06/10 20:15',title:'公告子公司鴻準精密6月份營業收入'},
+    {code:'3008',name:'大立光',time:'06/09 17:45',title:'說明近期光學元件出貨狀況及未來展望'},
+  ],
+  analyst2:[
+    {code:'2330',name:'台積電',time:'06/15 14:00',title:'2025年第一季法人說明會'},
+    {code:'2454',name:'聯發科',time:'06/08 14:30',title:'2025年第一季線上法說會'},
+  ],
+  cb:[{code:'3711',name:'日月光投控',time:'06/05',title:'發行第七次無擔保可轉換公司債，金額30億元'}],
+  buyback:[
+    {code:'2317',name:'鴻海',time:'06/01-06/30',title:'庫藏股買回：10-20萬張，區間160-200元'},
+    {code:'2308',name:'台達電',time:'05/20-06/20',title:'庫藏股買回：3萬張，區間350-420元'},
+  ]
+};
+
+const EPS_Q=[
+  {q:'24Q2',val:9.56},{q:'24Q1',val:8.70},{q:'23Q4',val:9.21},{q:'23Q3',val:8.14},
+  {q:'23Q2',val:7.01},{q:'23Q1',val:6.55},{q:'22Q4',val:10.83},{q:'22Q3',val:11.39},
+];
+const EPS_CUM=[
+  {q:'2024H1',val:18.26},{q:'2023年',val:30.91},{q:'2022年',val:39.20},
+  {q:'2021年',val:23.01},{q:'2020年',val:19.97},{q:'2019年',val:13.32},
+  {q:'2018年',val:13.54},{q:'2017年',val:12.38},
+];
+
+// FIX1: Taiwan stock holidays
+const TW_HOLIDAYS=[
+  '2025-01-01','2025-01-27','2025-01-28','2025-01-29','2025-01-30','2025-01-31',
+  '2025-02-28','2025-04-03','2025-04-04','2025-05-01','2025-06-02','2025-09-09',
+  '2025-10-10','2025-12-31',
+  '2026-01-01','2026-01-26','2026-01-27','2026-01-28','2026-01-29','2026-01-30',
+  '2026-02-28','2026-04-04','2026-05-01','2026-06-22','2026-09-29','2026-10-09','2026-10-10',
+];
+function todayStr(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+
+/* ===== TICKER — FIX4 drag ===== */
+function buildTicker(){
+  const track=document.getElementById('ticker-track');
+  const items=[...TICKER_DATA,...TICKER_DATA];
+  track.innerHTML=items.map(d=>{
+    const up=d.chg.startsWith('+'),dn=d.chg.startsWith('-');
+    return `<div class="ticker-item${d.night?' night':''}">
+      ${d.night?'<span class="ticker-night-tag">夜盤</span>':''}
+      <span class="ticker-name">${d.name}</span>
+      <span class="ticker-price mono">${d.price}</span>
+      <span class="ticker-chg ${up?'up':dn?'down':'flat'}">${d.chg}</span>
+    </div>`;
+  }).join('');
+  initTickerDrag();
+}
+
+function initTickerDrag(){
+  const wrap=document.getElementById('ticker-wrap');
+  const track=document.getElementById('ticker-track');
+  let isDragging=false,startX=0,baseOffset=0,animOffset=0;
+  const itemW=track.scrollWidth/2;
+  const speed=0.5;
+  function raf(){
+    if(!isDragging){
+      animOffset=(animOffset+speed)%itemW;
+      track.style.transform=`translateX(-${animOffset}px)`;
+    }
+    requestAnimationFrame(raf);
+  }
+  requestAnimationFrame(raf);
+  wrap.addEventListener('pointerdown',e=>{
+    isDragging=true;startX=e.clientX;baseOffset=animOffset;
+    wrap.setPointerCapture(e.pointerId);wrap.classList.add('dragging');
+  });
+  wrap.addEventListener('pointermove',e=>{
+    if(!isDragging)return;
+    animOffset=((baseOffset-(e.clientX-startX))%itemW+itemW)%itemW;
+    track.style.transform=`translateX(-${animOffset}px)`;
+  });
+  const end=()=>{isDragging=false;wrap.classList.remove('dragging')};
+  wrap.addEventListener('pointerup',end);wrap.addEventListener('pointercancel',end);
+}
+
+/* ===== CLOCK — FIX1 holiday ===== */
+function updateClock(){
+  const now=new Date();
+  const p=n=>String(n).padStart(2,'0');
+  document.getElementById('clock').innerHTML=`${p(now.getHours())}:${p(now.getMinutes())}:${p(now.getSeconds())}<br>${now.getFullYear()}/${p(now.getMonth()+1)}/${p(now.getDate())}`;
+  const badge=document.getElementById('holiday-badge');
+  if(TW_HOLIDAYS.includes(todayStr())){badge.classList.add('show')}
+  else{badge.classList.remove('show')}
+}
+
+/* ===== WATCHLIST ===== */
+function buildWatchlist(filter=''){
+  const area=document.getElementById('watchlist-area');
+  let html='';
+  STOCKS.groups.forEach(g=>{
+    const fil=g.stocks.filter(s=>s.code.toLowerCase().includes(filter.toLowerCase())||s.name.includes(filter));
+    if(!fil.length)return;
+    html+=`<div class="group-hd">${g.name}</div>`;
+    fil.forEach(s=>{
+      const up=s.pct>0,dn=s.pct<0;
+      const pctCls=up?'up':dn?'down':'flat';
+      let tags='';
+      if(s.ext>0)tags+=`<span class="tag ext-buy">外+${s.ext}</span>`;
+      else if(s.ext<0)tags+=`<span class="tag ext-sell">外${s.ext}</span>`;
+      if(s.inv>0)tags+=`<span class="tag inv-buy">投+${s.inv}</span>`;
+      else if(s.inv<0)tags+=`<span class="tag inv-sell">投${s.inv}</span>`;
+      if(s.div)tags+=`<span class="tag div">息${s.div}</span>`;
+      if(s.whale)tags+=`<span class="tag whale">大</span>`;
+      html+=`<div class="stock-row" id="sr-${s.code}" onclick="selectStock('${s.code}')">
+        <div class="stock-left">
+          <div class="stock-code mono">${s.code}</div>
+          <div class="stock-name">${s.name}</div>
+          <div class="stock-tags">${tags}</div>
+        </div>
+        <canvas width="60" height="32" id="mini-${s.code}"></canvas>
+        <div class="stock-right">
+          <div class="stock-price mono">${s.price.toLocaleString()}</div>
+          <div class="stock-pct ${pctCls}">${(up?'+':'')+s.pct.toFixed(2)}%</div>
+        </div>
+      </div>`;
+    });
+  });
+  area.innerHTML=html;
+  STOCKS.groups.forEach(g=>g.stocks.forEach(s=>drawMini(s)));
+}
+
+function drawMini(s){
+  const c=document.getElementById('mini-'+s.code);if(!c)return;
+  const ctx=c.getContext('2d'),w=c.width,h=c.height;
+  const pts=[];let v=s.price*(1-s.pct/100);
+  for(let i=0;i<20;i++){v+=(Math.random()-.48)*s.price*.008;pts.push(v);}
+  pts.push(s.price);
+  const mn=Math.min(...pts),mx=Math.max(...pts),rng=mx-mn||1;
+  const col=s.pct>0?'#d42b2b':s.pct<0?'#1a9e5c':'#8a909c';
+  ctx.clearRect(0,0,w,h);ctx.beginPath();
+  pts.forEach((p,i)=>{const x=i/(pts.length-1)*w,y=h-((p-mn)/rng)*(h-4)-2;i?ctx.lineTo(x,y):ctx.moveTo(x,y)});
+  ctx.strokeStyle=col;ctx.lineWidth=1.5;ctx.stroke();
+  ctx.lineTo(w,h);ctx.lineTo(0,h);ctx.closePath();ctx.fillStyle=col+'22';ctx.fill();
+}
+
+function filterStocks(){buildWatchlist(document.getElementById('search-input').value)}
+
+/* ===== SELECT ===== */
+function selectStock(code){
+  const s=STOCKS.groups.flatMap(g=>g.stocks).find(s=>s.code===code);if(!s)return;
+  const up=s.pct>0,dn=s.pct<0,cls=up?'up':dn?'down':'';
+  const amt=(s.pct/100*s.price).toFixed(0);
+  const chg=(up?'+':'')+amt+' ('+(up?'+':'')+s.pct.toFixed(2)+'%)';
+  document.getElementById('detail-code').textContent=s.code;
+  document.getElementById('detail-name').textContent=s.name;
+  const pe=document.getElementById('detail-price');pe.textContent=s.price.toLocaleString();pe.className='stock-title-price mono '+cls;
+  const ce=document.getElementById('detail-chg');ce.textContent=chg;ce.className='stock-title-chg mono '+cls;
+  document.querySelectorAll('.stock-row').forEach(r=>r.classList.remove('active'));
+  const row=document.getElementById('sr-'+code);if(row)row.classList.add('active');
+  if(window.innerWidth<900)mobileNavTo('mid-col');
+}
+
+/* ===== TABS — FIX6 ===== */
+function switchTab(name,btn){
+  document.querySelectorAll('#data-tabs .tab-btn').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  document.querySelectorAll('.tab-content').forEach(el=>el.classList.toggle('active',el.id==='tab-'+name));
+}
+
+let newsKey='domestic';
+function switchNewsTab(tab,btn){
+  newsKey=tab;
+  document.querySelectorAll('#news-tabs .tab-btn').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  buildNews();
+}
+function buildNews(){
+  const list=document.getElementById('news-list');
+  list.innerHTML=NEWS[newsKey].map((n,i)=>`
+    <div class="news-row" onclick="openNewsModal(${i})">
+      <div class="news-meta">
+        <span class="news-src-tag">${n.src}</span>
+        <span class="news-src-tag" style="background:#ebf4ff;color:var(--accent)">${n.cat}</span>
+        ${n.time}
+      </div>
+      <div class="news-title">${n.title}</div>
+    </div>`).join('');
+}
+function openNewsModal(i){
+  const n=NEWS[newsKey][i];
+  document.getElementById('news-modal-title').textContent=n.title;
+  document.getElementById('news-modal-meta').textContent=n.src+' · '+n.time;
+  document.getElementById('news-modal-body').textContent=n.body;
+  openModal('news-modal');
+}
+
+let mopsKey='major';
+function switchMopsTab(tab,btn){
+  mopsKey=tab;
+  document.querySelectorAll('#mops-tabs .tab-btn').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  buildMops();
+}
+function buildMops(){
+  const list=document.getElementById('mops-list');
+  const items=MOPS[mopsKey];
+  if(!items||!items.length){list.innerHTML='<div style="padding:16px 0;text-align:center;color:var(--text3);font-size:12px">目前無資料</div>';return}
+  list.innerHTML=items.map(m=>`
+    <div class="mops-row">
+      <div class="mops-meta"><span class="mono" style="color:var(--accent)">${m.code}</span><span>${m.name}</span><span>${m.time}</span></div>
+      <div class="mops-title">${m.title}</div>
+    </div>`).join('');
+}
+
+/* ===== EPS — FIX6 ===== */
+let epsMode='q';
+function switchEPS(mode){
+  epsMode=mode;
+  document.getElementById('eps-q-btn').classList.toggle('active',mode==='q');
+  document.getElementById('eps-cum-btn').classList.toggle('active',mode==='cum');
+  buildEPS();
+}
+function buildEPS(){
+  const data=epsMode==='q'?EPS_Q:EPS_CUM;
+  const maxV=Math.max(...data.map(d=>Math.abs(d.val)));
+  const bEl=document.getElementById('eps-bars'),nEl=document.getElementById('eps-nums');
+  if(!bEl)return;
+  bEl.innerHTML=data.map(d=>`<div class="eps-bar" style="height:${Math.round(Math.abs(d.val)/maxV*72)}px;background:${d.val>=0?'var(--up)':'var(--down)'}" title="${d.q}:${d.val}"></div>`).join('');
+  nEl.innerHTML=data.map(d=>`<div class="eps-num">${d.val.toFixed(1)}<br>${d.q}</div>`).join('');
+}
+
+/* ===== FIX6: expand toggle ===== */
+function toggleExpand(id,btnId){
+  const el=document.getElementById(id);if(!el)return;
+  const open=el.classList.toggle('open');
+  const btn=document.getElementById(btnId);
+  if(btn)btn.classList.toggle('open',open);
+}
+
+/* week switcher */
+function weekSwitch(btn){btn.closest('.week-btns').querySelectorAll('.week-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active')}
+
+/* TF */
+function setTF(btn){document.querySelectorAll('.tf-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active')}
+
+/* fin help */
+function showFinHelp(title,body){
+  document.getElementById('fin-help-title').textContent=title;
+  document.getElementById('fin-help-body').textContent=body;
+  openModal('fin-help-modal');
+}
+
+/* ===== MOBILE NAV ===== */
+function mobileNav(colId,btn){
+  mobileNavTo(colId);
+  document.querySelectorAll('.mobile-nav-btn').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+}
+function mobileNavTo(colId){
+  if(window.innerWidth>=900)return;
+  ['left-col','mid-col','right-col'].forEach(id=>{
+    const el=document.getElementById(id);
+    el.style.display=id===colId?'flex':'none';
+    if(id===colId)el.style.flexDirection='column';
+  });
+}
+window.addEventListener('resize',()=>{
+  if(window.innerWidth>=900){['left-col','mid-col','right-col'].forEach(id=>{const el=document.getElementById(id);el.style.display='';el.style.flexDirection=''})}
+});
+
+/* ===== MODALS ===== */
+function openModal(id){document.getElementById(id).classList.add('show')}
+function closeModal(id){document.getElementById(id).classList.remove('show')}
+function closeModalBg(e,id){if(e.target===e.currentTarget)closeModal(id)}
+
+/* ===== INIT (demo mode — replaced by live mode after Firebase config) ===== */
+buildTicker();
+buildWatchlist();
+buildNews();
+buildMops();
+buildEPS();
+updateClock();
+setInterval(updateClock,1000);
+if(window.innerWidth<900)mobileNavTo('left-col');
+setTimeout(()=>selectStock('2330'),50);
+</script>
+
+<!-- ============================================================
+  FIREBASE + LIVE API INTEGRATION
+  填入你的 Firebase 設定後，這段會自動啟用
+============================================================ -->
+<script type="module">
+// ─────────────────────────────────────────
+// ★ 填入你的 Firebase 設定（從 Firebase Console 複製）
+// ─────────────────────────────────────────
+const FIREBASE_CONFIG = {
+  apiKey:            "YOUR_API_KEY",
+  authDomain:        "YOUR_PROJECT.firebaseapp.com",
+  projectId:         "YOUR_PROJECT_ID",
+  storageBucket:     "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId:             "YOUR_APP_ID"
+};
+
+// ★ 填入你的 Render 後端 URL
+const API_BASE = "https://YOUR_APP.onrender.com";
+
+// ─────────────────────────────────────────
+// 判斷是否已填入設定
+// ─────────────────────────────────────────
+const IS_CONFIGURED =
+  FIREBASE_CONFIG.apiKey !== "YOUR_API_KEY" &&
+  API_BASE !== "https://YOUR_APP.onrender.com";
+
+if (!IS_CONFIGURED) {
+  console.info("📋 尚未填入 Firebase / API 設定，目前使用示範資料模式");
+  // 示範模式：顯示提示但不阻止操作
+  const tip = document.createElement('div');
+  tip.style.cssText = 'position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:#1a5fd4;color:#fff;font-size:11px;padding:6px 14px;border-radius:20px;z-index:9999;pointer-events:none;white-space:nowrap';
+  tip.textContent = '⚙️ 示範模式 — 填入 Firebase 設定後啟用即時資料';
+  document.body.appendChild(tip);
+  setTimeout(() => tip.remove(), 5000);
+} else {
+  // ─── 已設定，啟動完整模式 ───
+  initLiveMode();
+}
+
+async function initLiveMode() {
+  // 動態載入 Firebase SDK（ESM）
+  const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js");
+  const { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+    = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js");
+
+  const firebaseApp = initializeApp(FIREBASE_CONFIG);
+  const fbAuth = getAuth(firebaseApp);
+  const provider = new GoogleAuthProvider();
+
+  // ─── UI 更新 ───
+  function updateAuthUI(user) {
+    const avatarEl = document.querySelector('.avatar');
+    const logoutEl = document.querySelector('.logout-btn');
+    if (user) {
+      // 顯示姓名首字
+      const initial = (user.displayName || user.email || 'U').charAt(0).toUpperCase();
+      avatarEl.textContent = initial;
+      avatarEl.title = user.displayName || user.email;
+      logoutEl.textContent = '登出';
+      logoutEl.onclick = () => signOut(fbAuth);
+    } else {
+      avatarEl.textContent = '登入';
+      avatarEl.title = 'Google 登入';
+      avatarEl.onclick = () => signInWithPopup(fbAuth, provider).catch(console.error);
+      logoutEl.style.display = 'none';
+    }
+  }
+
+  // ─── 取得 ID Token ───
+  async function getToken() {
+    const user = fbAuth.currentUser;
+    if (!user) return null;
+    return await user.getIdToken();
+  }
+
+  // ─── API 呼叫封裝 ───
+  async function apiGet(path, auth = false) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (auth) {
+      const token = await getToken();
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+    }
+    const resp = await fetch(`${API_BASE}${path}`, { headers });
+    if (!resp.ok) throw new Error(`API ${path} 失敗: ${resp.status}`);
+    return resp.json();
+  }
+
+  async function apiPut(path, body) {
+    const token = await getToken();
+    const resp = await fetch(`${API_BASE}${path}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(body)
+    });
+    if (!resp.ok) throw new Error(`API PUT ${path} 失敗: ${resp.status}`);
+    return resp.json();
+  }
+
+  // ─── 即時報價 — 覆蓋自選股資料 ───
+  async function loadLiveQuotes(codes) {
+    if (!codes.length) return;
+    try {
+      const joined = codes.join(',');
+      const data = await apiGet(`/api/quotes?codes=${joined}`);
+      // 更新 STOCKS 示範資料為真實報價
+      data.quotes.forEach(q => {
+        if (q.error) return;
+        STOCKS.groups.forEach(g => {
+          const s = g.stocks.find(s => s.code.toUpperCase() === q.code.toUpperCase());
+          if (s) {
+            s.price = q.price;
+            s.pct = q.change_pct;
+          }
+        });
+        // 更新 detail panel（若目前選中的股票）
+        const detailCode = document.getElementById('detail-code').textContent;
+        if (detailCode.toUpperCase() === q.code.toUpperCase()) {
+          updateDetailPanel(q);
+        }
+      });
+      buildWatchlist();  // 重繪自選股列表
+    } catch (e) {
+      console.warn('載入即時報價失敗:', e.message);
+    }
+  }
+
+  function updateDetailPanel(q) {
+    const up = q.change_pct > 0, dn = q.change_pct < 0;
+    const cls = up ? 'up' : dn ? 'down' : '';
+    document.getElementById('detail-price').textContent = q.price.toLocaleString();
+    document.getElementById('detail-price').className = `stock-title-price mono ${cls}`;
+    const sign = up ? '+' : '';
+    document.getElementById('detail-chg').textContent = `${sign}${q.change} (${sign}${q.change_pct.toFixed(2)}%)`;
+    document.getElementById('detail-chg').className = `stock-title-chg mono ${cls}`;
+  }
+
+  // ─── 載入 Firestore 自選股 ───
+  async function loadWatchlistFromCloud() {
+    try {
+      const data = await apiGet('/api/watchlist', true);
+      if (data.groups) {
+        // 用雲端群組結構覆蓋示範資料，但保留 pct/price 為 0 等待報價更新
+        STOCKS.groups = data.groups.map(g => ({
+          name: g.name,
+          stocks: g.stocks.map(code => ({
+            code,
+            name: code,  // 先用 code，報價回來後更新
+            price: 0,
+            pct: 0,
+            ext: 0, inv: 0, div: null, whale: false
+          }))
+        }));
+        buildWatchlist();
+        // 取得所有代號的即時報價
+        const allCodes = data.groups.flatMap(g => g.stocks);
+        await loadLiveQuotes(allCodes);
+      }
+    } catch (e) {
+      console.warn('讀取雲端自選股失敗（可能未登入）:', e.message);
+    }
+  }
+
+  // ─── 跑馬燈即時更新 ───
+  async function loadLiveTicker() {
+    const tickerCodes = ['TWII','N225','KOSPI','HSI','DJI','SPX','IXIC'];
+    try {
+      const data = await apiGet(`/api/quotes?codes=${tickerCodes.join(',')}`);
+      const nameMap = {
+        'TWII':'台灣加權','N225':'日經 225','KOSPI':'韓 KOSPI',
+        'HSI':'恒生指數','DJI':'道　瓊','SPX':'S&P 500','IXIC':'NASDAQ'
+      };
+      // 更新 TICKER_DATA
+      data.quotes.forEach(q => {
+        if (q.error) return;
+        const item = TICKER_DATA.find(t => t.name === nameMap[q.code]);
+        if (item) {
+          item.price = q.price.toLocaleString();
+          item.chg = (q.change_pct >= 0 ? '+' : '') + q.change_pct.toFixed(2) + '%';
+        }
+      });
+      buildTicker();  // 重建跑馬燈
+    } catch (e) {
+      console.warn('跑馬燈更新失敗:', e.message);
+    }
+  }
+
+  // ─── 認證狀態監聽 ───
+  onAuthStateChanged(fbAuth, async (user) => {
+    updateAuthUI(user);
+    if (user) {
+      console.log(`✅ 已登入: ${user.displayName || user.email}`);
+      // 登入後載入雲端自選股 + 即時報價
+      await loadWatchlistFromCloud();
+      await loadLiveTicker();
+      // 每 60 秒自動更新報價
+      setInterval(async () => {
+        const allCodes = STOCKS.groups.flatMap(g => g.stocks.map(s => s.code));
+        await loadLiveQuotes(allCodes);
+        await loadLiveTicker();
+      }, 60000);
+    } else {
+      // 未登入：點頭像觸發 Google 登入
+      document.querySelector('.avatar').onclick = () =>
+        signInWithPopup(fbAuth, provider).catch(console.error);
+    }
+  });
+
+  // ─── 暴露到全域供 HTML onclick 使用 ───
+  window._fbAuth = fbAuth;
+  window._signOut = () => signOut(fbAuth);
+  window._apiGet = apiGet;
+  window._apiPut = apiPut;
+  window._loadLiveQuotes = loadLiveQuotes;
+
+  console.log('🚀 即時模式已啟動');
+}
+</script>
+</body>
+</html>
